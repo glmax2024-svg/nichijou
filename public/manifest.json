@@ -1,0 +1,25 @@
+{
+  "name": "日常 Nichijou",
+  "short_name": "日常",
+  "description": "キャラクターの日常を追いかける AI 陪伴アプリ",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f43f5e",
+  "orientation": "portrait",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

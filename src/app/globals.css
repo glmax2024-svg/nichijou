@@ -1,0 +1,280 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f9ece7;
+  --foreground: #3a3330;
+  --muted: #b0a099;
+  --muted-foreground: #8a7a72;
+  --border: rgba(120, 72, 54, 0.07);
+  --primary: #ef7488;
+  --primary-from: #f79aa8;
+  --primary-to: #ef7488;
+  --accent: #e0607a;
+  --surface: #fff;
+  --surface-warm: #fbf4f1;
+  --input-bg: #faf5f2;
+  --ai: #8b76d4;
+  --ai-bg: #efeafc;
+  --success: #3fae76;
+  --success-bg: #eafaf1;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-noto-sans-jp);
+  --font-display: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+}
+
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-from), var(--primary-to));
+  color: #fff;
+  font-family: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+  font-weight: 700;
+  box-shadow: 0 12px 22px -10px rgba(239, 116, 136, 0.8);
+}
+
+.btn-dark {
+  background: #3a3330;
+  color: #fff;
+  font-family: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+  font-weight: 700;
+}
+
+.tag-pill {
+  background: #ffeef1;
+  color: #e0607a;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--ai-bg);
+  color: var(--ai);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  box-shadow: 0 10px 30px -20px rgba(120, 72, 54, 0.4);
+}
+
+@keyframes floatUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes heartPop {
+  0% {
+    transform: scale(1);
+  }
+  38% {
+    transform: scale(1.4);
+  }
+  70% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes softPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@keyframes typing {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
+
+@keyframes petal {
+  0% {
+    transform: translateY(-20px) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateY(360px) translateX(60px) rotate(320deg);
+    opacity: 0;
+  }
+}
+
+.petal {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle at 30% 30%, #ffd6de, #ff9fb2);
+  border-radius: 12px 1px 12px 1px;
+  pointer-events: none;
+  animation: petal 6s linear infinite;
+}
+
+.coin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fff6e6;
+  border: 1px solid rgba(214, 160, 60, 0.25);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #b8862e;
+}
+
+.animate-float-up {
+  animation: floatUp 0.5s ease both;
+}
+
+.animate-soft-pulse {
+  animation: softPulse 2.4s ease-in-out infinite;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.tarot-deck-card {
+  cursor: pointer;
+  transition:
+    transform 0.22s ease,
+    filter 0.22s ease,
+    box-shadow 0.22s ease;
+}
+.tarot-deck-card:hover:not(:disabled) {
+  transform: translateY(-8px);
+  filter: drop-shadow(0 10px 20px rgba(201, 162, 39, 0.45));
+}
+.tarot-deck-card:hover:not(:disabled) .tarot-card {
+  box-shadow: 0 0 18px rgba(201, 162, 39, 0.55);
+}
+.tarot-deck-card:active:not(:disabled) {
+  transform: translateY(-4px) scale(0.98);
+}
+
+.tarot-deck-pulse {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+.tarot-deck-pulse:hover {
+  transform: translateY(-4px) scale(1.02);
+}
+.tarot-deck-pulse:active {
+  transform: translateY(-1px) scale(0.98);
+}
+.tarot-deck-top {
+  position: relative;
+  z-index: 2;
+  animation: tarotDeckGlow 2.2s ease-in-out infinite;
+}
+@keyframes tarotDeckGlow {
+  0%,
+  100% {
+    box-shadow: 0 8px 24px -6px rgba(201, 162, 39, 0.35);
+  }
+  50% {
+    box-shadow: 0 12px 32px -4px rgba(201, 162, 39, 0.55);
+  }
+}
+
+@keyframes liveAmbientBreath {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.live-ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.25), transparent 55%);
+  animation: liveAmbientBreath 6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes liveVideoKenBurns {
+  0% {
+    transform: scale(1) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.06) translate(-1%, -1%);
+  }
+}
+.live-video-frame {
+  animation: liveVideoKenBurns 8s ease-in-out infinite alternate;
+}
+
+.app-shell {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}

@@ -1,0 +1,37 @@
+{
+  "source": "Talkie https://www.talkie-ai.com/zh-Hant · Anime & Game category layout reference",
+  "cachedAt": "2026-07-16",
+  "note": "外网抓取失败时用本地立绘复刻 Talkie 二次元卡片结构；文案为演示假数据，见 src/lib/discover-catalog.ts",
+  "categories": [
+    "Recommend",
+    "Featured",
+    "Play & Fun",
+    "Helper",
+    "Original",
+    "Anime & Game",
+    "Fiction & Media",
+    "Icon",
+    "School",
+    "Fantasy",
+    "Sci-Fi"
+  ],
+  "animeGameSamplesFromTalkiePage": [
+    {
+      "name": "Capitano",
+      "origin": "Genshin Impact",
+      "replies": "6.4K"
+    },
+    {
+      "name": "Toji Fushiguro JJK",
+      "origin": "Jujutsu Kaisen",
+      "replies": "27.2K"
+    },
+    {
+      "name": "Loona Helluva Boss",
+      "origin": "Helluva Boss",
+      "replies": "56.7K"
+    }
+  ],
+  "localCatalogCount": 24,
+  "localCatalogPath": "src/lib/discover-catalog.ts"
+}

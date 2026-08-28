@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Nichijou" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#f9ece7</item>
+        <item name="android:navigationBarColor">#ffffff</item>
+        <item name="android:windowBackground">#f9ece7</item>
+    </style>
+</resources>
