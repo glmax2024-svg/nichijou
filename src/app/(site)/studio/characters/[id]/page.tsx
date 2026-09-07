@@ -9,8 +9,9 @@ import { MIcon } from "@/components/ui/m-icon";
 import { LoraTrainWizard } from "@/components/studio/lora-train-wizard";
 import { LoraGeneratePanel } from "@/components/studio/lora-generate-panel";
 import { LoraLibraryPanel } from "@/components/studio/lora-library-panel";
+import { PersonaEditor } from "@/components/studio/persona-editor";
 
-type Tab = "post" | "train" | "library" | "generate" | "voice";
+type Tab = "persona" | "post" | "train" | "library" | "generate" | "voice";
 
 type CharacterInfo = {
   id: string;
@@ -23,7 +24,7 @@ type CharacterInfo = {
 export default function ManageCharacterPage() {
   const params = useParams();
   const characterId = params.id as string;
-  const [tab, setTab] = useState<Tab>("library");
+  const [tab, setTab] = useState<Tab>("persona");
   const [character, setCharacter] = useState<CharacterInfo | null>(null);
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -46,7 +47,8 @@ export default function ManageCharacterPage() {
       hash === "library" ||
       hash === "generate" ||
       hash === "post" ||
-      hash === "voice"
+      hash === "voice" ||
+      hash === "persona"
     ) {
       setTab(hash);
     }
@@ -170,6 +172,7 @@ export default function ManageCharacterPage() {
   }
 
   const tabs: Array<{ id: Tab; label: string; icon: string }> = [
+    { id: "persona", label: "人格容器", icon: "badge" },
     { id: "library", label: "已完成 LoRA", icon: "inventory_2" },
     { id: "train", label: "LoRA 训练", icon: "model_training" },
     { id: "generate", label: "LoRA 生成", icon: "auto_awesome" },
@@ -229,6 +232,8 @@ export default function ManageCharacterPage() {
         </div>
 
         <div className="mt-6">
+          {tab === "persona" && <PersonaEditor characterId={characterId} />}
+
           {tab === "library" && (
             <LoraLibraryPanel
               characterId={characterId}
