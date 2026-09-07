@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { MIcon } from "@/components/ui/m-icon";
+import { redirectIfCheckout } from "@/lib/checkout-client";
 import { FREE_DAILY_MESSAGE_LIMIT } from "@/lib/chat-quota";
 import { SUBSCRIPTION_PACKAGE } from "@/lib/subscription-perks";
 
@@ -61,6 +62,7 @@ export function SubscriptionModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "加入に失敗しました");
+      if (redirectIfCheckout(data)) return;
       onSubscribed?.();
       onClose();
       router.refresh();

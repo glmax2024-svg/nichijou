@@ -4,6 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 import { FailClosedError, isDemoMode, isStripeConfigured } from "@/lib/runtime";
 import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
+import { createYenCheckout } from "@/lib/stripe";
+import { enforceAdultUser } from "@/lib/security/age";
+import { recordRevenueShare } from "@/lib/revenue/ledger";
 
 const schema = z.object({
   characterId: z.string(),
@@ -26,6 +29,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { characterId } = schema.parse(body);
+
+    const ageGate = await enforceAdultUser(session.user.id);
+    if (ageGate) return ageGate;
 
     const character = await prisma.character.findUnique({ where: { id: characterId } });
     if (!character?.published) {
@@ -62,13 +68,29 @@ export async function POST(request: Request) {
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
       });
+      await recordRevenueShare({
+        characterId,
+        kind: "SUBSCRIPTION",
+        sourceId: `sub:${subscription.id}:${subscription.currentPeriodEnd?.toISOString() ?? subscription.id}`,
+        grossAmount: character.subscriptionPrice,
+      });
       return NextResponse.json({ subscription, demo: true });
     }
 
-    return NextResponse.json(
-      { error: "Stripe Checkout はまだ有効になっていません", code: "CHECKOUT_NOT_READY" },
-      { status: 501 },
-    );
+    const checkout = await createYenCheckout({
+      userId: session.user.id,
+      amount: character.subscriptionPrice,
+      name: `${character.name} 推しパッケージ`,
+      successPath: "/subscriptions",
+      cancelPath: "/subscriptions",
+      metadata: {
+        kind: "subscription",
+        userId: session.user.id,
+        characterId,
+      },
+    });
+
+    return NextResponse.json({ checkoutUrl: checkout.url });
   } catch (error) {
     if (error instanceof FailClosedError) {
       return failClosedResponse(error);

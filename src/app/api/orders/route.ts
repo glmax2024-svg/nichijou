@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { ORDER_OPTIONS } from "@/lib/stripe";
+import { ORDER_OPTIONS, createYenCheckout } from "@/lib/stripe";
 import { generateVoiceText, synthesizeWithVoiceClone } from "@/lib/ai/pipeline";
 import { z } from "zod";
 import { FailClosedError, isDemoMode, isStripeConfigured } from "@/lib/runtime";
 import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
+import { enforceAdultUser } from "@/lib/security/age";
+import { enforceContentPolicy } from "@/lib/security/moderation";
+import { recordBondInteraction } from "@/lib/agent/relationship";
+import { recordRevenueShare } from "@/lib/revenue/ledger";
 
 const schema = z.object({
   characterId: z.string(),
@@ -32,6 +36,11 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = schema.parse(body);
 
+    const ageGate = await enforceAdultUser(session.user.id);
+    if (ageGate) return ageGate;
+    const blocked = await enforceContentPolicy(data.customText, "order");
+    if (blocked) return blocked;
+
     const character = await prisma.character.findUnique({ where: { id: data.characterId } });
     if (!character) {
       return NextResponse.json({ error: "キャラクターが見つかりません" }, { status: 404 });
@@ -53,7 +62,11 @@ export async function POST(request: Request) {
     let audioBuffer: Buffer | null = null;
     if (fulfillNow) {
       voiceText = await generateVoiceText(character, data.type, data.customText);
-      audioBuffer = await synthesizeWithVoiceClone(voiceText, character.voiceEmbeddingId);
+      audioBuffer = await synthesizeWithVoiceClone(
+        voiceText,
+        character.voiceEmbeddingId,
+        character.id,
+      );
     }
 
     const order = await prisma.order.create({
@@ -68,24 +81,50 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!fulfillNow) {
-      return NextResponse.json(
-        {
-          order,
-          error: "Stripe Checkout はまだ有効になっていません",
-          code: "CHECKOUT_NOT_READY",
-        },
-        { status: 501 },
-      );
+    if (fulfillNow) {
+      await recordBondInteraction({
+        userId: session.user.id,
+        characterId: data.characterId,
+        type: "order",
+        summary: `オーダー: ${data.type}`,
+        delta: 5,
+      });
+      await recordRevenueShare({
+        characterId: data.characterId,
+        kind: "ORDER",
+        sourceId: `order:${order.id}`,
+        grossAmount: option.amount,
+      });
+      return NextResponse.json({
+        order,
+        voiceText,
+        voiceCloned: !!character.voiceEmbeddingId,
+        hasAudio: !!audioBuffer,
+        demo: true,
+      });
     }
 
-    return NextResponse.json({
-      order,
-      voiceText,
-      voiceCloned: !!character.voiceEmbeddingId,
-      hasAudio: !!audioBuffer,
-      demo: true,
+    const checkout = await createYenCheckout({
+      userId: session.user.id,
+      amount: option.amount,
+      name: `${character.name} ${option.label}`,
+      successPath: "/orders",
+      cancelPath: "/orders",
+      metadata: {
+        kind: "order",
+        userId: session.user.id,
+        characterId: data.characterId,
+        orderId: order.id,
+        customText: data.customText ?? "",
+      },
     });
+
+    await prisma.order.update({
+      where: { id: order.id },
+      data: { stripeSessionId: checkout.id },
+    });
+
+    return NextResponse.json({ order, checkoutUrl: checkout.url });
   } catch (error) {
     if (error instanceof FailClosedError) {
       return failClosedResponse(error);
