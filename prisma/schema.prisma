@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -48,25 +48,32 @@ enum VoiceProfileStatus {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  name          String?
-  email         String         @unique
-  emailVerified DateTime?
-  image         String?
-  passwordHash  String?
-  role          UserRole       @default(FAN)
-  bio           String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  accounts      Account[]
-  sessions      Session[]
-  characters    Character[]
-  subscriptions Subscription[]
-  messages      Message[]
-  gifts         Gift[]
-  orders        Order[]
-  postComments  PostComment[]
-  postLikes     PostLike[]
+  id              String         @id @default(cuid())
+  name            String?
+  email           String         @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?
+  role            UserRole       @default(FAN)
+  bio             String?        @db.Text
+  birthDate       DateTime?      @db.Date
+  ageVerifiedAt   DateTime?
+  termsAcceptedAt DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  accounts        Account[]
+  sessions        Session[]
+  characters      Character[]
+  subscriptions   Subscription[]
+  messages        Message[]
+  gifts           Gift[]
+  orders          Order[]
+  postComments    PostComment[]
+  postLikes       PostLike[]
+  memories          CharacterMemory[]
+  bonds             CharacterBond[]
+  creatorShareBps   Int?
+  earnings          CreatorEarning[]
 }
 
 model Account {
@@ -110,10 +117,18 @@ model Character {
   tagline           String?
   avatarUrl         String
   coverUrl          String?
-  bio               String
-  personality       String
-  speechStyle       String
+  bio               String         @db.Text
+  personality       String         @db.Text
+  speechStyle       String         @db.Text
   tags              String         @default("")
+  identity          String         @default("") @db.Text
+  worldRules        String         @default("") @db.Text
+  brandVoice        String         @default("") @db.Text
+  boundaries        String         @default("") @db.Text
+  contentRating     String         @default("ALL")
+  personaVersion    Int            @default(1)
+  triggerWord       String?
+  skillIds          String         @default("")
   voiceId           String         @default("default")
   loraAdapterId     String?
   loraStatus        LoraStatus     @default(NONE)
@@ -135,12 +150,16 @@ model Character {
   memories          CharacterMemory[]
   loraJobs          LoraTrainingJob[]
   loraGenerations   LoraGeneration[]
+  personaRevisions  PersonaRevision[]
+  bonds             CharacterBond[]
+  creatorShareBps   Int?
+  earnings          CreatorEarning[]
 }
 
 model Post {
   id            String        @id @default(cuid())
   characterId   String
-  content       String
+  content       String        @db.Text
   imageUrl      String?
   isAiAssisted  Boolean       @default(false)
   publishedAt   DateTime      @default(now())
@@ -155,7 +174,7 @@ model PostComment {
   postId        String
   userId        String?
   authorType    String
-  content       String
+  content       String   @db.Text
   isAiGenerated Boolean  @default(false)
   createdAt     DateTime @default(now())
   post          Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -196,11 +215,13 @@ model Message {
   userId        String
   characterId   String
   role          String
-  content       String
+  content       String    @db.Text
   isAiGenerated Boolean   @default(false)
   createdAt     DateTime  @default(now())
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   character     Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([userId, characterId, createdAt])
 }
 
 model Gift {
@@ -210,6 +231,7 @@ model Gift {
   giftType    String
   amount      Int
   message     String?
+  stripeSessionId String? @unique
   createdAt   DateTime  @default(now())
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
@@ -223,7 +245,7 @@ model Order {
   status      OrderStatus @default(PENDING)
   amount      Int
   scheduledAt DateTime?
-  content     String?
+  content     String?   @db.Text
   voiceUrl    String?
   stripeSessionId String?
   createdAt   DateTime    @default(now())
@@ -262,13 +284,13 @@ model LoraTrainingJob {
   characterId String
   status      LoraStatus @default(QUEUED)
   adapterId   String?
-  datasetNote String?
+  datasetNote String?    @db.Text
   /// 0–100 训练进度（画师页轮询展示）
   progress    Int        @default(0)
   triggerWord String?
   baseModel   String?
-  recipeJson  String?
-  errorMsg    String?
+  recipeJson  String?    @db.Text
+  errorMsg    String?    @db.Text
   startedAt   DateTime?
   finishedAt  DateTime?
   createdAt   DateTime   @default(now())
@@ -279,10 +301,10 @@ model LoraTrainingJob {
 model LoraGeneration {
   id             String    @id @default(cuid())
   characterId    String
-  prompt         String
-  negativePrompt String?
+  prompt         String    @db.Text
+  negativePrompt String?   @db.Text
   imageUrl       String?
-  textContent    String?
+  textContent    String?   @db.Text
   weight         Float     @default(0.85)
   steps          Int       @default(28)
   status         String    @default("READY")
@@ -292,17 +314,62 @@ model LoraGeneration {
   @@index([characterId, createdAt])
 }
 
+/// 人格容器版本回溯 — 每次 Studio 保存人设时落一版
+model PersonaRevision {
+  id          String    @id @default(cuid())
+  characterId String
+  version     Int
+  payload     Json
+  createdAt   DateTime  @default(now())
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, version])
+  @@index([characterId, createdAt])
+}
+
+/// 用户 × 角色关系快照（可回放）
+model CharacterBond {
+  id              String              @id @default(cuid())
+  userId          String
+  characterId     String
+  intimacy        Int                 @default(0)
+  stage           String              @default("new")
+  turnCount       Int                 @default(0)
+  summary         String              @default("") @db.Text
+  lastUserMessage String              @default("") @db.Text
+  updatedAt       DateTime            @updatedAt
+  createdAt       DateTime            @default(now())
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  character       Character           @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  events          CharacterBondEvent[]
+
+  @@unique([userId, characterId])
+}
+
+model CharacterBondEvent {
+  id            String        @id @default(cuid())
+  bondId        String
+  type          String
+  summary       String        @db.Text
+  deltaIntimacy Int           @default(0)
+  createdAt     DateTime      @default(now())
+  bond          CharacterBond @relation(fields: [bondId], references: [id], onDelete: Cascade)
+
+  @@index([bondId, createdAt])
+}
+
 /// 永久记忆 — Memos 插件本地镜像 / 降级存储
 model CharacterMemory {
   id          String    @id @default(cuid())
   userId      String
   characterId String
-  content     String
+  content     String    @db.Text
   category    String    @default("general")
   source      String    @default("memos")
   importance  Float     @default(0.5)
   createdAt   DateTime  @default(now())
   character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, characterId])
 }
@@ -321,10 +388,83 @@ model AiUsageLog {
   cachedTokens Int      @default(0)
   latencyMs    Int      @default(0)
   ok           Boolean  @default(true)
-  errorMsg     String?
+  errorMsg     String?  @db.Text
   createdAt    DateTime @default(now())
 
   @@index([createdAt])
   @@index([scene, createdAt])
   @@index([model, createdAt])
+}
+
+/// 平台键值设置（全局画师分成等）
+model PlatformSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+/// 限时分成活动：给画师份额加成（basis points，1000 = +10%）
+model RevenueCampaign {
+  id          String   @id @default(cuid())
+  name        String
+  bonusBps    Int
+  startsAt    DateTime
+  endsAt      DateTime
+  active      Boolean  @default(true)
+  /// GLOBAL | CREATOR | CHARACTER
+  scope       String   @default("GLOBAL")
+  creatorId   String?
+  characterId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([active, startsAt, endsAt])
+}
+
+/// 画师收入账本。每笔已入账支付一行，分成快照不可回溯改写。
+model CreatorEarning {
+  id              String    @id @default(cuid())
+  creatorId       String
+  characterId     String
+  /// SUBSCRIPTION | GIFT | ORDER
+  kind            String
+  sourceId        String    @unique
+  grossAmount     Int
+  creatorShareBps Int
+  bonusBps        Int       @default(0)
+  finalShareBps   Int
+  creatorAmount   Int
+  platformAmount  Int
+  campaignId      String?
+  campaignName    String?
+  /// PENDING | AVAILABLE | PAID_OUT
+  status          String    @default("PENDING")
+  createdAt       DateTime  @default(now())
+  creator         User      @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  character       Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([creatorId, createdAt])
+  @@index([characterId, createdAt])
+}
+
+/// 后台可配置的礼物图录（icon / 动画 / 价格）
+model GiftItem {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  emoji         String   @default("🎁")
+  iconUrl       String?
+  animationUrl  String?
+  /// none | gif | mp4
+  animationKind String   @default("none")
+  amount        Int
+  sortOrder     Int      @default(0)
+  active        Boolean  @default(true)
+  intimacyDelta Int      @default(3)
+  description   String   @default("")
+  accentColor   String   @default("#ffe1e6")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([active, sortOrder])
 }

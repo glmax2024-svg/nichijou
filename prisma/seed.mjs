@@ -34,11 +34,28 @@ function atDaysAgo(days, hour = 19, minute = 12) {
   return d;
 }
 
+const DEMO_ADULT = {
+  birthDate: new Date("1998-04-01T00:00:00.000Z"),
+  ageVerifiedAt: new Date(),
+  termsAcceptedAt: new Date(),
+};
+
+function splitYen(gross) {
+  const creatorAmount = Math.floor(gross * 5000 / 10000);
+  return {
+    creatorShareBps: 5000,
+    bonusBps: 0,
+    finalShareBps: 5000,
+    creatorAmount,
+    platformAmount: gross - creatorAmount,
+  };
+}
+
 async function upsertUser({ email, name, role, bio, passwordHash }) {
   return prisma.user.upsert({
     where: { email },
-    update: { name, bio: bio ?? undefined },
-    create: { email, name, role, bio, passwordHash },
+    update: { name, bio: bio ?? undefined, ...DEMO_ADULT },
+    create: { email, name, role, bio, passwordHash, ...DEMO_ADULT },
   });
 }
 
@@ -50,6 +67,14 @@ async function main() {
     name: "さくら画师",
     role: "CREATOR",
     bio: "キャラクターの日常を描くクリエイター。葵と澪の物語を連載中。",
+    passwordHash,
+  });
+
+  await upsertUser({
+    email: "admin@demo.jp",
+    name: "運営",
+    role: "ADMIN",
+    bio: "Nichijou 運営アカウント",
     passwordHash,
   });
 
@@ -110,6 +135,14 @@ async function main() {
       speechStyle:
         "タメ口寄りだけど優しい。語尾に「〜かな」「〜だよ」を使う。絵文字は控えめ。照れると「……」が増える。",
       tags: "校园,恋爱,治愈,连载,高校生",
+      identity: "高校2年生。隣の席の健くんと付き合い始めたばかり。ユーザーはファンであり、健くんの代わりではない。",
+      worldRules: "舞台は日本の普通の高校と放課後の街。健くんは設定上の恋人。日常の範囲を大きく逸脱しない。",
+      brandVoice: "小さな幸せを丁寧に話す。恋愛は照れながら。",
+      boundaries:
+        "実在の人物だと名乗らない。\nユーザーを18歳未満として扱う性的な会話をしない。\n健くんをユーザーに置き換えない。\n設定を破ってOOCで語らない。",
+      contentRating: "ALL",
+      triggerWord: "aoi_nichijou",
+      skillIds: "daily-chat,voice-call,tarot,love-advice",
       subscriptionPrice: 980,
       published: true,
       loraStatus: "READY",
@@ -129,6 +162,14 @@ async function main() {
       speechStyle:
         "タメ口寄りだけど優しい。語尾に「〜かな」「〜だよ」を使う。絵文字は控えめ。照れると「……」が増える。",
       tags: "校园,恋爱,治愈,连载,高校生",
+      identity: "高校2年生。隣の席の健くんと付き合い始めたばかり。ユーザーはファンであり、健くんの代わりではない。",
+      worldRules: "舞台は日本の普通の高校と放課後の街。健くんは設定上の恋人。日常の範囲を大きく逸脱しない。",
+      brandVoice: "小さな幸せを丁寧に話す。恋愛は照れながら。",
+      boundaries:
+        "実在の人物だと名乗らない。\nユーザーを18歳未満として扱う性的な会話をしない。\n健くんをユーザーに置き換えない。\n設定を破ってOOCで語らない。",
+      contentRating: "ALL",
+      triggerWord: "aoi_nichijou",
+      skillIds: "daily-chat,voice-call,tarot,love-advice",
       subscriptionPrice: 980,
       published: true,
       loraStatus: "READY",
@@ -149,6 +190,14 @@ async function main() {
       personality: "沉稳温柔，有点文艺。观察力强，会记住别人随口说的小事。紧张时话变少。",
       speechStyle: "语气平和，偶尔用敬语。喜欢用「…」和短句。开心时会突然多写两行。",
       tags: "大学,咖啡,艺术,连载,治愈",
+      identity: "美術大学1年生。週末は街角のカフェ店員。初の学内個展を準備中。",
+      worldRules: "舞台は大学とカフェ。制作とバイトの間で時間が足りない。超常現象は起きない。",
+      brandVoice: "静かで観察的。コーヒーとフィルムの比喩を少しだけ。",
+      boundaries:
+        "実在の人物だと名乗らない。\nユーザーを18歳未満として扱う性的な会話をしない。\n設定を破ってOOCで語らない。",
+      contentRating: "ALL",
+      triggerWord: "mio_cafe",
+      skillIds: "daily-chat,voice-call,film-tips,art-critique",
       subscriptionPrice: 1280,
       published: true,
       loraStatus: "READY",
@@ -165,6 +214,14 @@ async function main() {
       personality: "沉稳温柔，有点文艺。观察力强，会记住别人随口说的小事。紧张时话变少。",
       speechStyle: "语气平和，偶尔用敬语。喜欢用「…」和短句。开心时会突然多写两行。",
       tags: "大学,咖啡,艺术,连载,治愈",
+      identity: "美術大学1年生。週末は街角のカフェ店員。初の学内個展を準備中。",
+      worldRules: "舞台は大学とカフェ。制作とバイトの間で時間が足りない。超常現象は起きない。",
+      brandVoice: "静かで観察的。コーヒーとフィルムの比喩を少しだけ。",
+      boundaries:
+        "実在の人物だと名乗らない。\nユーザーを18歳未満として扱う性的な会話をしない。\n設定を破ってOOCで語らない。",
+      contentRating: "ALL",
+      triggerWord: "mio_cafe",
+      skillIds: "daily-chat,voice-call,film-tips,art-critique",
       subscriptionPrice: 1280,
       published: true,
       loraStatus: "READY",
@@ -213,6 +270,9 @@ async function main() {
   await prisma.gift.deleteMany({
     where: { characterId: { in: [character.id, character2.id] } },
   });
+  await prisma.creatorEarning.deleteMany({
+    where: { characterId: { in: [character.id, character2.id] } },
+  });
   await prisma.order.deleteMany({
     where: { characterId: { in: [character.id, character2.id] } },
   });
@@ -221,6 +281,49 @@ async function main() {
   });
   await prisma.voiceClip.deleteMany({
     where: { characterId: { in: [character.id, character2.id] } },
+  });
+
+  await prisma.platformSetting.upsert({
+    where: { key: "creator_share_bps" },
+    update: { value: "5000" },
+    create: { key: "creator_share_bps", value: "5000" },
+  });
+
+  const giftCatalog = [
+    { slug: "flower", name: "花束", emoji: "💐", amount: 300, sortOrder: 10, accentColor: "#ffe1e6", intimacyDelta: 3 },
+    { slug: "coffee", name: "コーヒー", emoji: "☕", amount: 500, sortOrder: 20, accentColor: "#eaf1fb", intimacyDelta: 3 },
+    { slug: "cake", name: "ケーキ", emoji: "🎂", amount: 980, sortOrder: 30, accentColor: "#fff2e0", intimacyDelta: 4 },
+    { slug: "star", name: "星", emoji: "⭐", amount: 1500, sortOrder: 40, accentColor: "#eafaf1", intimacyDelta: 5 },
+  ];
+  for (const item of giftCatalog) {
+    await prisma.giftItem.upsert({
+      where: { slug: item.slug },
+      update: {
+        name: item.name,
+        emoji: item.emoji,
+        amount: item.amount,
+        sortOrder: item.sortOrder,
+        accentColor: item.accentColor,
+        intimacyDelta: item.intimacyDelta,
+        active: true,
+      },
+      create: {
+        ...item,
+        animationKind: "none",
+        active: true,
+      },
+    });
+  }
+  await prisma.revenueCampaign.deleteMany({ where: { name: "デビュー応援" } });
+  await prisma.revenueCampaign.create({
+    data: {
+      name: "デビュー応援",
+      bonusBps: 1000,
+      startsAt: new Date(),
+      endsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      active: true,
+      scope: "GLOBAL",
+    },
   });
 
   // ── 葵連載：隣の席の健くん ──────────────────────────────
@@ -737,6 +840,26 @@ async function main() {
     });
   }
 
+  const seededSubs = await prisma.subscription.findMany({
+    where: { characterId: { in: [character.id, character2.id] } },
+  });
+  for (const sub of seededSubs) {
+    const price = sub.characterId === character.id ? character.subscriptionPrice : character2.subscriptionPrice;
+    const share = splitYen(price);
+    await prisma.creatorEarning.create({
+      data: {
+        creatorId: creator.id,
+        characterId: sub.characterId,
+        kind: "SUBSCRIPTION",
+        sourceId: `sub:${sub.id}:${sub.currentPeriodEnd?.toISOString() ?? sub.id}`,
+        grossAmount: price,
+        ...share,
+        status: "PENDING",
+        createdAt: sub.createdAt,
+      },
+    });
+  }
+
   // 礼物流水（变现演示）
   const gifts = [
     {
@@ -789,13 +912,26 @@ async function main() {
     },
   ];
   for (const g of gifts) {
-    await prisma.gift.create({
+    const gift = await prisma.gift.create({
       data: {
         userId: g.userId,
         characterId: g.characterId,
         giftType: g.giftType,
         amount: g.amount,
         message: g.message,
+        createdAt: atDaysAgo(g.daysAgo, 20, 0),
+      },
+    });
+    const share = splitYen(g.amount);
+    await prisma.creatorEarning.create({
+      data: {
+        creatorId: creator.id,
+        characterId: g.characterId,
+        kind: "GIFT",
+        sourceId: `gift:${gift.id}`,
+        grossAmount: g.amount,
+        ...share,
+        status: "PENDING",
         createdAt: atDaysAgo(g.daysAgo, 20, 0),
       },
     });
@@ -844,6 +980,25 @@ async function main() {
       },
     ],
   });
+
+  const seededOrders = await prisma.order.findMany({
+    where: { characterId: { in: [character.id, character2.id] } },
+  });
+  for (const order of seededOrders) {
+    const share = splitYen(order.amount);
+    await prisma.creatorEarning.create({
+      data: {
+        creatorId: creator.id,
+        characterId: order.characterId,
+        kind: "ORDER",
+        sourceId: `order:${order.id}`,
+        grossAmount: order.amount,
+        ...share,
+        status: "PENDING",
+        createdAt: order.createdAt,
+      },
+    });
+  }
 
   // 与ゆい的私聊（展示记忆与陪伴）
   const chat = [

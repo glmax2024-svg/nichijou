@@ -8,14 +8,17 @@ function createPrismaClient() {
   });
 }
 
-function hasPostCommentDelegate(client: PrismaClient) {
-  return typeof client.postComment?.findMany === "function";
+function isCurrentPrismaClient(client: PrismaClient) {
+  return (
+    typeof client.postComment?.findMany === "function" &&
+    typeof client.giftItem?.findMany === "function"
+  );
 }
 
 function getPrismaClient(): PrismaClient {
   const cached = globalForPrisma.prisma;
 
-  if (cached && hasPostCommentDelegate(cached)) {
+  if (cached && isCurrentPrismaClient(cached)) {
     return cached;
   }
 
@@ -26,9 +29,9 @@ function getPrismaClient(): PrismaClient {
 
   const client = createPrismaClient();
 
-  if (!hasPostCommentDelegate(client)) {
+  if (!isCurrentPrismaClient(client)) {
     throw new Error(
-      "Prisma Client is missing PostComment. Run: npx prisma generate && restart the dev server.",
+      "Prisma Client is missing GiftItem/PostComment. Run: npx prisma generate && restart the dev server.",
     );
   }
 

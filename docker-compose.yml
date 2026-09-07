@@ -10,6 +10,54 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nichijou -d nichijou"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  lora-worker:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      LORA_WORKER_PORT: "3200"
+      LORA_WORKER_API_KEY: ${LORA_WORKER_API_KEY:-dev-lora-worker}
+      LORA_GPU_BACKEND_URL: ${LORA_GPU_BACKEND_URL:-}
+    ports:
+      - "3200:3200"
+    volumes:
+      - ./services/lora-worker:/app
+
+  voice-worker:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      VOICE_WORKER_PORT: "3210"
+      TTS_CLONE_API_KEY: ${TTS_CLONE_API_KEY:-dev-voice-worker}
+      TTS_CLONE_BACKEND_URL: ${TTS_CLONE_BACKEND_URL:-}
+    ports:
+      - "3210:3210"
+    volumes:
+      - ./services/voice-worker:/app
+
+  memos-worker:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      MEMOS_WORKER_PORT: "3220"
+      MEMOS_API_KEY: ${MEMOS_API_KEY:-dev-memos-worker}
+      MEMOS_BACKEND_URL: ${MEMOS_BACKEND_URL:-}
+      MEMOS_RETENTION_DAYS: ${MEMOS_RETENTION_DAYS:-365}
+    ports:
+      - "3220:3220"
+    volumes:
+      - ./services/memos-worker:/app
 
 volumes:
   postgres_data:
