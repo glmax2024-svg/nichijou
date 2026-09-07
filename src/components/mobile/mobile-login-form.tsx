@@ -4,15 +4,18 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MIcon } from "@/components/ui/m-icon";
+import { RegisterComplianceFields } from "@/components/legal/register-compliance-fields";
 
 export function MobileLoginForm({
   defaultCallbackUrl = "/h5",
   embedded = false,
   showDemoHints = false,
+  legalBasePath = "/h5",
 }: {
   defaultCallbackUrl?: string;
   embedded?: boolean;
   showDemoHints?: boolean;
+  legalBasePath?: "" | "/h5" | "/app";
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -25,6 +28,8 @@ export function MobileLoginForm({
     email: "",
     password: "",
     name: "",
+    birthDate: "",
+    acceptedTerms: false,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -36,7 +41,13 @@ export function MobileLoginForm({
         const res = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            email: form.email,
+            password: form.password,
+            name: form.name,
+            birthDate: form.birthDate,
+            acceptedTerms: form.acceptedTerms,
+          }),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -124,6 +135,13 @@ export function MobileLoginForm({
                   placeholder="ゆい"
                 />
               </div>
+              <RegisterComplianceFields
+                birthDate={form.birthDate}
+                acceptedTerms={form.acceptedTerms}
+                onBirthDate={(birthDate) => setForm({ ...form, birthDate })}
+                onAcceptedTerms={(acceptedTerms) => setForm({ ...form, acceptedTerms })}
+                legalBasePath={legalBasePath}
+              />
             </>
           )}
 

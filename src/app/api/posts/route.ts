@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
+import { enforceAdultUser } from "@/lib/security/age";
+import { enforceContentPolicy } from "@/lib/security/moderation";
 
 const schema = z.object({
   characterId: z.string(),
@@ -26,6 +28,11 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const data = schema.parse(body);
+
+    const ageGate = await enforceAdultUser(session.user.id);
+    if (ageGate) return ageGate;
+    const blocked = await enforceContentPolicy(data.content, "post");
+    if (blocked) return blocked;
 
     const character = await prisma.character.findUnique({ where: { id: data.characterId } });
     if (!character || character.creatorId !== session.user.id) {

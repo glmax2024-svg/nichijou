@@ -73,6 +73,15 @@ export async function StudioDashboard({ creator, characters }: StudioDashboardPr
                   公開クリエイターページを見る
                   <MIcon name="open_in_new" className="text-[15px]" />
                 </Link>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <Link
+                    href="/studio/earnings"
+                    className="inline-flex items-center gap-1 text-[12px] font-bold text-[#ef7488] hover:underline"
+                  >
+                    {dict.studio.earnings}
+                    <MIcon name="payments" className="text-[15px]" />
+                  </Link>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:gap-3">

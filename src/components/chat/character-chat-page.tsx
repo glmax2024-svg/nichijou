@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getChatAccess } from "@/lib/chat-quota";
 import { loginPath } from "@/lib/login-path";
 import { resolveAnimeAvatar } from "@/lib/character-media";
-import { getCharacterSkills } from "@/lib/character-skills";
+import { skillsForCharacter } from "@/lib/character-skills";
 import { getChatContext } from "@/lib/chat-context";
 import { formatMemoryHints } from "@/lib/chat-greeting";
 import { MIcon } from "@/components/ui/m-icon";
@@ -56,6 +56,8 @@ export async function CharacterChatPage({
       subscriptionPrice: true,
       published: true,
       creatorId: true,
+      tags: true,
+      skillIds: true,
       creator: { select: { name: true } },
     },
   });
@@ -95,7 +97,9 @@ export async function CharacterChatPage({
           <div className="min-w-0 leading-snug">
             <div className="truncate font-display text-[15px] font-bold">{character.name}</div>
             <div className="truncate text-[11px] text-[#b0a099]">
-              Official by {character.creator.name ?? "クリエイター"}
+              {chatContext.bondLabel
+                ? chatContext.bondLabel
+                : `Official by ${character.creator.name ?? "クリエイター"}`}
             </div>
           </div>
         </Link>
@@ -109,13 +113,14 @@ export async function CharacterChatPage({
           characterAvatar={resolveAnimeAvatar(character.slug, character.avatarUrl)}
           chatAccess={chatAccess}
           subscriptionPrice={character.subscriptionPrice}
-          skills={getCharacterSkills(character.slug)}
+          skills={skillsForCharacter(character)}
           activeSkill={activeSkill}
           variant="page"
           hideHeader
           memoryHints={memoryDisplay}
           postContext={chatContext.postContext}
           initialGreeting={chatContext.initialGreeting}
+          initialBondLabel={chatContext.bondLabel}
           initialMessages={messages.map((m) => ({
             ...m,
             createdAt: m.createdAt.toISOString(),

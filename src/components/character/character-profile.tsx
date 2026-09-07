@@ -19,7 +19,7 @@ import { loginPath } from "@/lib/login-path";
 import { characterChatHref } from "@/lib/chat-inbox";
 import { CharacterImage } from "@/components/ui/character-image";
 import { getCharacterPrivateMedia } from "@/lib/character-media";
-import { getCharacterSkills } from "@/lib/character-skills";
+import { skillsForCharacter } from "@/lib/character-skills";
 import { FREE_DAILY_MESSAGE_LIMIT } from "@/lib/chat-quota";
 
 type CharacterProfileProps = {
@@ -57,7 +57,7 @@ export async function CharacterProfile({
   const commentsByPost = await getCommentsForPosts(character.posts.map((p) => p.id));
   const loginHref = loginPath(basePath, `${basePath}/characters/${slug}`);
   const privateMedia = getCharacterPrivateMedia(character.slug);
-  const skills = getCharacterSkills(character.slug);
+  const skills = skillsForCharacter(character);
 
   const postCards = character.posts.map((post, i) => {
     const feedPost: FeedPostData = {
@@ -319,7 +319,7 @@ export async function CharacterProfile({
               />
             </div>
             <div className="mt-4">
-              <GiftShelf />
+              <GiftShelf characterId={character.id} />
             </div>
           </div>
         </div>

@@ -5,7 +5,7 @@ import { isDemoMode } from "@/lib/runtime";
 export default function H5LoginPage() {
   return (
     <Suspense>
-      <MobileLoginForm showDemoHints={isDemoMode()} />
+      <MobileLoginForm legalBasePath="/h5" showDemoHints={isDemoMode()} />
     </Suspense>
   );
 }

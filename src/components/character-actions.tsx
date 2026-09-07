@@ -3,8 +3,12 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { MIcon } from "@/components/ui/m-icon";
-import { GIFT_OPTIONS, ORDER_OPTIONS, formatYen } from "@/lib/stripe";
+import { ORDER_OPTIONS, formatYen } from "@/lib/stripe";
 import { loginPath } from "@/lib/login-path";
+import { redirectIfCheckout } from "@/lib/checkout-client";
+import { GiftGrid } from "@/components/gifts/gift-grid";
+import { GiftFx, type GiftFxPayload } from "@/components/gifts/gift-fx";
+import { useGiftCatalog, type PublicGift } from "@/components/gifts/use-gift-catalog";
 
 export function CharacterActions({
   characterId,
@@ -25,6 +29,8 @@ export function CharacterActions({
   const pathname = usePathname();
   const mobileBase = pathname.startsWith("/h5") ? "/h5" : pathname.startsWith("/app") ? "/app" : "";
   const [loading, setLoading] = useState<string | null>(null);
+  const [fx, setFx] = useState<GiftFxPayload | null>(null);
+  const gifts = useGiftCatalog();
 
   function goLogin() {
     router.push(loginPath(mobileBase, pathname));
@@ -44,6 +50,7 @@ export function CharacterActions({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (redirectIfCheckout(data)) return;
       alert(data.demo ? "デモモード：サブスクが有効になりました！" : "加入しました！");
       router.refresh();
     } catch (err) {
@@ -53,21 +60,29 @@ export function CharacterActions({
     }
   }
 
-  async function sendGift(giftType: string) {
+  async function sendGift(gift: PublicGift) {
     if (!isLoggedIn) {
       goLogin();
       return;
     }
-    setLoading(giftType);
+    setLoading(gift.slug);
     try {
       const res = await fetch("/api/gifts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterId, giftType }),
+        body: JSON.stringify({ characterId, giftType: gift.slug }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      alert(`${data.emoji} ${data.label} を ${characterName} に送りました！`);
+      if (redirectIfCheckout(data)) return;
+      setFx({
+        name: data.label ?? gift.name,
+        emoji: data.emoji ?? gift.emoji,
+        iconUrl: data.iconUrl ?? gift.iconUrl,
+        animationUrl: data.animationUrl ?? gift.animationUrl,
+        animationKind: data.animationKind ?? gift.animationKind,
+        accentColor: gift.accentColor,
+      });
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラー");
     } finally {
@@ -91,6 +106,7 @@ export function CharacterActions({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (redirectIfCheckout(data)) return;
       alert(`注文完了！\n\nボイステキスト:\n「${data.voiceText}」`);
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラー");
@@ -153,20 +169,7 @@ export function CharacterActions({
           <MIcon name="redeem" className="text-[20px] text-[#ef7488]" />
           ギフトを送る
         </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {GIFT_OPTIONS.map((gift) => (
-            <button
-              key={gift.id}
-              onClick={() => sendGift(gift.id)}
-              disabled={!!loading}
-              className="rounded-2xl border border-[rgba(120,72,54,0.06)] p-3 text-left transition hover:border-[rgba(239,116,136,0.2)] hover:bg-[#ffeef1] disabled:opacity-50"
-            >
-              <span className="text-xl">{gift.emoji}</span>
-              <p className="mt-1 text-sm font-bold">{gift.label}</p>
-              <p className="text-xs text-[#b0a099]">{formatYen(gift.amount)}</p>
-            </button>
-          ))}
-        </div>
+        <GiftGrid gifts={gifts} loadingId={loading} onPick={sendGift} />
       </div>
 
       <div
@@ -199,6 +202,7 @@ export function CharacterActions({
           ))}
         </div>
       </div>
+      <GiftFx gift={fx} onDone={() => setFx(null)} />
     </div>
   );
 }

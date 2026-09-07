@@ -124,6 +124,12 @@ export function H5MeLoggedIn({
         {(session.user.role === "CREATOR" || session.user.role === "ADMIN") && (
           <MeRow icon="palette" iconColor="#8b76d4" label="クリエイタースタジオ" href="/studio" />
         )}
+        {session.user.role === "ADMIN" && (
+          <>
+            <MeRow icon="payments" iconColor="#ef7488" label="分成管理" href="/admin/revenue" />
+            <MeRow icon="redeem" iconColor="#ef7488" label="ギフト図録" href="/admin/gifts" />
+          </>
+        )}
         <MeRow icon="help" iconColor="#8a7a72" label="ヘルプ" href={`${basePath}/help`} />
       </div>
     </div>

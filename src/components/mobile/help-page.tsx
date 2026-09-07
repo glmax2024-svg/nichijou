@@ -1,4 +1,5 @@
 import { MobilePageHeader } from "@/components/mobile/mobile-page-header";
+import Link from "next/link";
 
 const faqs = [
   {
@@ -42,6 +43,17 @@ export function HelpPage({ basePath }: { basePath: "" | "/h5" | "/app" }) {
         <p className="mt-6 text-center text-[12px] text-[#b0a099]">
           お問い合わせ: support@nichijou.app
         </p>
+        <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 text-center text-[12px] text-[#b0a099]">
+          <Link href={`${basePath}/legal/terms`} className="hover:text-[#ef7488]">
+            利用規約
+          </Link>
+          <Link href={`${basePath}/legal/privacy`} className="hover:text-[#ef7488]">
+            プライバシー
+          </Link>
+          <Link href={`${basePath}/legal/tokushoho`} className="hover:text-[#ef7488]">
+            特定商取引法
+          </Link>
+        </div>
       </div>
     </div>
   );

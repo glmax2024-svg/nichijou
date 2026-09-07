@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getCommentsForPost } from "@/lib/post-comments";
 import { generatePostCommentReply } from "@/lib/ai/post-comment";
 import { z } from "zod";
+import { enforceAdultUser } from "@/lib/security/age";
+import { enforceContentPolicy } from "@/lib/security/moderation";
 
 const createSchema = z.object({
   content: z.string().min(1).max(500),
@@ -33,6 +35,11 @@ export async function POST(request: Request, context: RouteContext) {
   try {
     const body = await request.json();
     const { content } = createSchema.parse(body);
+
+    const ageGate = await enforceAdultUser(session.user.id);
+    if (ageGate) return ageGate;
+    const blocked = await enforceContentPolicy(content, "comment");
+    if (blocked) return blocked;
 
     const post = await prisma.post.findUnique({
       where: { id: postId },

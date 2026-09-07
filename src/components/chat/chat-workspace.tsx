@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getChatAccess } from "@/lib/chat-quota";
 import { loginPath } from "@/lib/login-path";
 import { getChatThreads } from "@/lib/chat-inbox";
-import { getChatContext } from "@/lib/chat-context";
+import { getChatContext, type ChatContextData } from "@/lib/chat-context";
 import { formatMemoryHints } from "@/lib/chat-greeting";
 import {
   resolveAnimeAvatar,
@@ -16,7 +16,7 @@ import {
   getJstHour,
   getPrimaryLiveStatus,
 } from "@/lib/character-live-status";
-import { getCharacterSkills } from "@/lib/character-skills";
+import { skillsForCharacter } from "@/lib/character-skills";
 import { ChatThreadList } from "@/components/chat/chat-thread-list";
 import { ChatCharacterPanel } from "@/components/chat/chat-character-panel";
 import { ChatThread } from "@/components/chat/chat-thread";
@@ -63,10 +63,12 @@ export async function ChatWorkspace({
     remaining: 0,
   };
   let subscribed = false;
-  let chatContext = {
-    memoryHints: [] as string[],
-    postContext: null as { id: string; excerpt: string } | null,
-    initialGreeting: null as string | null,
+  let chatContext: ChatContextData = {
+    memoryHints: [],
+    postContext: null,
+    initialGreeting: null,
+    bond: null,
+    bondLabel: null,
   };
 
   if (activeSlug) {
@@ -82,6 +84,7 @@ export async function ChatWorkspace({
         bio: true,
         personality: true,
         tags: true,
+        skillIds: true,
         subscriptionPrice: true,
         published: true,
         creatorId: true,
@@ -135,6 +138,7 @@ export async function ChatWorkspace({
           }),
           dailyMedia: getCharacterDailyMedia(character.slug, locale),
           dayPeriod,
+          bond: chatContext.bond ?? null,
         };
       })()
     : null;
@@ -160,6 +164,9 @@ export async function ChatWorkspace({
                 <div className="font-display text-[15px] font-bold">{character.name}</div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-[11px] font-bold text-[#3fae76]">オンライン</span>
+                  {chatContext.bondLabel && (
+                    <span className="text-[10px] font-bold text-[#e0607a]">{chatContext.bondLabel}</span>
+                  )}
                   {creatorName && (
                     <span className="text-[10px] text-[#8a7a72]">
                       Official by {creatorName}
@@ -186,7 +193,7 @@ export async function ChatWorkspace({
               characterAvatar={resolveAnimeAvatar(character.slug, character.avatarUrl)}
               chatAccess={chatAccess}
               subscriptionPrice={character.subscriptionPrice}
-              skills={getCharacterSkills(character.slug)}
+              skills={skillsForCharacter(character)}
               activeSkill={activeSkill}
               variant="page"
               layout="workspace"
@@ -194,6 +201,7 @@ export async function ChatWorkspace({
               memoryHints={memoryDisplay}
               postContext={chatContext.postContext}
               initialGreeting={chatContext.initialGreeting}
+              initialBondLabel={chatContext.bondLabel}
               initialMessages={messages.map((m) => ({
                 ...m,
                 createdAt: m.createdAt.toISOString(),

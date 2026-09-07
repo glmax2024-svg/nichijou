@@ -23,7 +23,12 @@ export default async function AppMePage() {
   if (!session?.user) {
     return (
       <Suspense>
-        <MobileLoginForm defaultCallbackUrl="/app/me" embedded showDemoHints={isDemoMode()} />
+        <MobileLoginForm
+          defaultCallbackUrl="/app/me"
+          embedded
+          legalBasePath="/app"
+          showDemoHints={isDemoMode()}
+        />
       </Suspense>
     );
   }

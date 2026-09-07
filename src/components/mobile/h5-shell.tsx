@@ -17,6 +17,7 @@ export function H5Shell({
   const isLogin = pathname.endsWith("/login");
   const isFullscreen =
     pathname.includes("/characters/") ||
+    pathname.includes("/legal/") ||
     FULLSCREEN_SUFFIXES.some((suffix) => pathname.endsWith(suffix));
 
   if (isLogin) {

@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { MIcon } from "@/components/ui/m-icon";
 import { AmbientBg } from "@/components/ui/ambient-bg";
+import { RegisterComplianceFields } from "@/components/legal/register-compliance-fields";
 
 export default function LoginPageClient({ showDemoHints = false }: { showDemoHints?: boolean }) {
   const router = useRouter();
@@ -19,6 +20,8 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
     email: "",
     password: "",
     name: "",
+    birthDate: "",
+    acceptedTerms: false,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -30,7 +33,13 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
         const res = await fetch("/api/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify({
+            email: form.email,
+            password: form.password,
+            name: form.name,
+            birthDate: form.birthDate,
+            acceptedTerms: form.acceptedTerms,
+          }),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -135,6 +144,12 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
                         placeholder="ゆい"
                       />
                     </div>
+                    <RegisterComplianceFields
+                      birthDate={form.birthDate}
+                      acceptedTerms={form.acceptedTerms}
+                      onBirthDate={(birthDate) => setForm({ ...form, birthDate })}
+                      onAcceptedTerms={(acceptedTerms) => setForm({ ...form, acceptedTerms })}
+                    />
                   </>
                 )}
 

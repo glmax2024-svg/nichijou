@@ -23,7 +23,12 @@ export default async function H5MePage() {
   if (!session?.user) {
     return (
       <Suspense>
-        <MobileLoginForm defaultCallbackUrl="/h5/me" embedded showDemoHints={isDemoMode()} />
+        <MobileLoginForm
+          defaultCallbackUrl="/h5/me"
+          embedded
+          legalBasePath="/h5"
+          showDemoHints={isDemoMode()}
+        />
       </Suspense>
     );
   }

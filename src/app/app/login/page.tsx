@@ -5,7 +5,7 @@ import { isDemoMode } from "@/lib/runtime";
 export default function AppLoginPage() {
   return (
     <Suspense>
-      <MobileLoginForm defaultCallbackUrl="/app" showDemoHints={isDemoMode()} />
+      <MobileLoginForm defaultCallbackUrl="/app" legalBasePath="/app" showDemoHints={isDemoMode()} />
     </Suspense>
   );
 }

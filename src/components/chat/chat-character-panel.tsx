@@ -3,7 +3,7 @@ import { parseTags } from "@/lib/utils";
 import { MIcon } from "@/components/ui/m-icon";
 import { AffinityBar } from "@/components/ui/affinity-bar";
 import { CharacterLiveStatusPanel } from "@/components/character/character-live-status-panel";
-import { mockAffinity } from "@/lib/scenes";
+import { affinityFromBond, type BondSnapshot } from "@/lib/agent/bond-display";
 import type { DailyMediaItem, DayPeriod, LiveStatus } from "@/lib/character-live-status";
 
 export type ChatCharacterPanelData = {
@@ -24,6 +24,7 @@ export type ChatCharacterPanelData = {
   liveStatus: LiveStatus;
   dailyMedia: DailyMediaItem[];
   dayPeriod: DayPeriod;
+  bond?: BondSnapshot | null;
 };
 
 type ChatCharacterPanelProps = {
@@ -34,7 +35,7 @@ type ChatCharacterPanelProps = {
 export function ChatCharacterPanel({ character, basePath = "" }: ChatCharacterPanelProps) {
   const profileHref = `${basePath}/characters/${character.slug}`;
   const tags = parseTags(character.tags);
-  const affinity = mockAffinity(character.slug);
+  const affinity = affinityFromBond(character.bond ?? null);
 
   return (
     <div className="h-full overflow-y-auto bg-[#fbf4f1]">

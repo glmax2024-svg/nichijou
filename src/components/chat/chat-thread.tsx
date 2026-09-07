@@ -16,6 +16,7 @@ import { isCallSkill, formatCallDuration } from "@/lib/skills/call";
 import { isTarotSkill } from "@/lib/skills/tarot";
 import type { DrawnTarotCard } from "@/lib/skills/tarot";
 import { useLocale } from "@/components/i18n/locale-provider";
+import { formatBondLabel } from "@/lib/agent/bond-display";
 
 export type ChatMessage = {
   id: string;
@@ -41,6 +42,7 @@ type ChatThreadProps = {
   memoryHints?: string[];
   postContext?: PostContext | null;
   initialGreeting?: string | null;
+  initialBondLabel?: string | null;
 };
 
 function buildInitialMessages(
@@ -75,6 +77,7 @@ export function ChatThread({
   memoryHints = [],
   postContext = null,
   initialGreeting = null,
+  initialBondLabel = null,
 }: ChatThreadProps) {
   const { dict, t } = useLocale();
   const [messages, setMessages] = useState(() =>
@@ -91,6 +94,7 @@ export function ChatThread({
       !initialMessages.some((m) => m.content.includes("タロット占い")),
   );
   const [showVoiceCall, setShowVoiceCall] = useState(false);
+  const [bondLabel, setBondLabel] = useState(initialBondLabel);
   const isPage = variant === "page";
   const isWorkspace = layout === "workspace";
 
@@ -316,6 +320,10 @@ export function ChatThread({
         data.userMessage,
         data.assistantMessage,
       ]);
+      if (data.ai?.bond) {
+        const next = formatBondLabel(data.ai.bond);
+        if (next) setBondLabel(next);
+      }
 
       if (!chatAccess.isSubscribed && !chatAccess.isCreator) {
         setChatAccess((prev) => {
@@ -420,6 +428,13 @@ export function ChatThread({
     </div>
   );
 
+  const bondBanner =
+    hideHeader && bondLabel ? (
+      <div className="shrink-0 border-b border-[rgba(239,116,136,0.12)] bg-[#fff4f6] px-4 py-1.5">
+        <p className="text-center text-[11px] font-bold text-[#e0607a]">{bondLabel}</p>
+      </div>
+    ) : null;
+
   const postBanner = postContext ? (
     <div className="shrink-0 border-b border-[rgba(239,116,136,0.12)] bg-[#fff4f6] px-4 py-2">
       <p className="text-center text-[11.5px] text-[#8a7a72]">
@@ -451,7 +466,9 @@ export function ChatThread({
       </div>
       <div className="min-w-0 flex-1 leading-snug">
         <div className="font-display text-[15px] font-bold">{characterName}</div>
-        <div className="text-[11.5px] font-bold text-[#3fae76]">オンライン · すぐ返事するね</div>
+        <div className="truncate text-[11.5px] font-bold text-[#3fae76]">
+          {bondLabel ? `${bondLabel} · オンライン` : "オンライン · すぐ返事するね"}
+        </div>
       </div>
       {!isPage && <MIcon name="call" className="text-[22px] text-[#ef7488]" />}
     </div>
@@ -604,6 +621,7 @@ export function ChatThread({
       <>
         <div className="relative flex min-h-0 flex-1 flex-col">
           {!hideHeader && header}
+          {bondBanner}
           {memoryBanner}
           {postBanner}
           {skillBanner}
