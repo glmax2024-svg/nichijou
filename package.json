@@ -7,12 +7,18 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint",
+    "db:up": "docker compose up -d postgres",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.mjs",
     "assets:png": "node scripts/fix-character-svgs.mjs && node scripts/svg-to-png.mjs",
     "db:setup": "prisma db push && node prisma/seed.mjs",
-    "ai:smoke": "node scripts/gateway-smoke.mjs"
+    "launch:check": "node scripts/launch-check.mjs",
+    "storage:smoke": "npx tsx scripts/storage-smoke.ts",
+    "ai:smoke": "node scripts/gateway-smoke.mjs",
+    "worker:lora": "node services/lora-worker/server.mjs",
+    "worker:voice": "node services/voice-worker/server.mjs",
+    "worker:memos": "node services/memos-worker/server.mjs"
   },
   "postinstall": "prisma generate",
   "dependencies": {
