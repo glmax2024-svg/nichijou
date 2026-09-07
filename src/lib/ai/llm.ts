@@ -8,11 +8,13 @@
  */
 
 import type { CharacterPersona, ChatTurn, LoraAdapterConfig, MemoryEntry } from "./types";
-import { buildLoraSystemAugment } from "./lora";
+import { buildLoraSystemAugment, loraWorkerHeaders } from "./lora";
 import { formatMemoriesForPrompt } from "./memos-plugin";
 import { runSceneChat, getSceneConfig, type AiScene } from "./model-router";
 import type { GatewayMessage } from "./gateway";
 import { FailClosedError, isDemoMode } from "@/lib/runtime";
+import { buildPersonaSystemPrompt } from "@/lib/agent/prompt";
+import type { BondSnapshot } from "@/lib/agent/bond-display";
 
 const LORA_INFERENCE_URL = process.env.LORA_INFERENCE_API_URL;
 const LORA_INFERENCE_API_KEY = process.env.LORA_INFERENCE_API_KEY;
@@ -26,6 +28,7 @@ type GenerateParams = {
   /** 决定档位 / 上下文预算，默认按免费用户处理（最省）。 */
   scene?: AiScene;
   userId?: string | null;
+  bond?: BondSnapshot | null;
 };
 
 export async function generateWithPersona(params: GenerateParams): Promise<string> {
@@ -72,10 +75,7 @@ async function generateViaLoraInference(
 ): Promise<string> {
   const { loraConfig } = params;
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (LORA_INFERENCE_API_KEY) {
-    headers.Authorization = `Bearer ${LORA_INFERENCE_API_KEY}`;
-  }
+  const headers = loraWorkerHeaders(LORA_INFERENCE_API_KEY, params.character.id);
 
   const res = await fetch(`${LORA_INFERENCE_URL}/v1/chat/completions`, {
     method: "POST",
@@ -118,24 +118,12 @@ function buildMessages(params: GenerateParams, scene: AiScene): GatewayMessage[]
   const loraAugment = buildLoraSystemAugment(loraConfig);
   const memoryBlock = formatMemoriesForPrompt(trimmedMemories);
 
-  const systemPrompt = `あなたは「${character.name}」というキャラクターです。
-
-## 基本設定
-性格: ${character.personality}
-話し方: ${character.speechStyle}
-背景: ${character.bio}
-
-## 永久记忆（Memos 强制检索结果 — 必ず参照すること）
-${memoryBlock}
-
-${loraAugment}
-
-## ルール
-- 常にキャラクターとして自然な日本語で返答する
-- 上記の永久记忆に含まれる事実を矛盾なく反映する
-- 設定から外れた内容（OOC）は避ける
-- 短めで親しみやすい口調にする
-- ユーザーとの関係性を大切にする`;
+  const systemPrompt = buildPersonaSystemPrompt({
+    character,
+    memoryBlock,
+    loraAugment,
+    bond: params.bond,
+  });
 
   const recentHistory =
     config.historyMessages > 0
@@ -166,9 +154,7 @@ export async function generatePostDraft(
         {
           role: "system",
           content: `あなたは「${character.name}」の日常を SNS に投稿するアシスタントです。
-性格: ${character.personality}
-話し方: ${character.speechStyle}
-${loraAugment}
+${buildPersonaSystemPrompt({ character, memoryBlock: "（なし）", loraAugment })}
 140字以内で、今日の出来事風の投稿を1つ書いてください。`,
         },
         { role: "user", content: "今日の日常投稿を書いて" },

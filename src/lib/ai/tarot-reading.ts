@@ -42,6 +42,8 @@ export async function generateTarotReading(
 性格: ${character.personality}
 話し方: ${character.speechStyle}
 背景: ${character.bio}
+${character.identity ? `身分: ${character.identity}` : ""}
+${character.boundaries ? `社交境界:\n${character.boundaries}` : ""}
 
 ## ルール
 - 日本語で、キャラクターの口調を保つ

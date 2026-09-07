@@ -14,6 +14,15 @@ import { FailClosedError, isDemoMode } from "@/lib/runtime";
 const TTS_API_URL = process.env.TTS_CLONE_API_URL;
 const TTS_API_KEY = process.env.TTS_CLONE_API_KEY;
 
+function voiceWorkerHeaders(characterId: string) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Nichijou-Character-Id": characterId,
+  };
+  if (TTS_API_KEY) headers.Authorization = `Bearer ${TTS_API_KEY}`;
+  return headers;
+}
+
 export function validateSampleDuration(durationSec: number): string | null {
   if (durationSec < VOICE_MIN_SAMPLE_SEC) {
     return `参考音频至少需要 ${VOICE_MIN_SAMPLE_SEC} 秒，当前 ${durationSec.toFixed(1)} 秒`;
@@ -50,7 +59,7 @@ export async function enrollVoiceProfile(input: VoiceEnrollInput): Promise<Voice
   let embeddingId: string;
 
   if (TTS_API_URL && TTS_API_KEY) {
-    embeddingId = await enrollRemote(sampleAudioUrl, durationSec);
+    embeddingId = await enrollRemote(characterId, sampleAudioUrl, durationSec);
   } else if (isDemoMode()) {
     embeddingId = await enrollSimulated(characterId, sampleAudioUrl, durationSec);
   } else {
@@ -74,14 +83,16 @@ export async function enrollVoiceProfile(input: VoiceEnrollInput): Promise<Voice
   return { embeddingId, status: "READY" };
 }
 
-async function enrollRemote(sampleAudioUrl: string, durationSec: number): Promise<string> {
+async function enrollRemote(
+  characterId: string,
+  sampleAudioUrl: string,
+  durationSec: number,
+): Promise<string> {
   const res = await fetch(`${TTS_API_URL}/v1/voice/enroll`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${TTS_API_KEY}`,
-    },
+    headers: voiceWorkerHeaders(characterId),
     body: JSON.stringify({
+      character_id: characterId,
       audio_url: sampleAudioUrl,
       duration_sec: durationSec,
       min_sample_sec: VOICE_MIN_SAMPLE_SEC,
@@ -111,15 +122,13 @@ async function enrollSimulated(
 export async function synthesizeWithVoiceClone(
   text: string,
   embeddingId: string | null | undefined,
+  characterId?: string,
 ): Promise<Buffer | null> {
-  if (embeddingId && TTS_API_URL && TTS_API_KEY) {
+  if (embeddingId && TTS_API_URL && TTS_API_KEY && characterId) {
     try {
       const res = await fetch(`${TTS_API_URL}/v1/voice/synthesize`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${TTS_API_KEY}`,
-        },
+        headers: voiceWorkerHeaders(characterId),
         body: JSON.stringify({
           embedding_id: embeddingId,
           text,

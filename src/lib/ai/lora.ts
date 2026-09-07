@@ -5,11 +5,9 @@
  * 未配置外部训练服务时，走本地进度模拟（适合演示）。
  */
 
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { FailClosedError, isDemoMode } from "@/lib/runtime";
+import { putUpload } from "@/lib/storage";
 import { gatewayImage } from "./gateway";
 import { IMAGE_MODEL } from "./model-router";
 import type {
@@ -33,6 +31,15 @@ export type DatasetImage = {
   caption: string;
 };
 
+export function loraWorkerHeaders(apiKey: string | undefined, characterId: string) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Nichijou-Character-Id": characterId,
+  };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+  return headers;
+}
+
 export async function resolveLoraAdapter(
   character: CharacterPersona,
 ): Promise<LoraAdapterConfig | null> {
@@ -42,9 +49,10 @@ export async function resolveLoraAdapter(
 
   return {
     adapterId: character.loraAdapterId,
-    version: 0,
+    version: character.loraVersion ?? 0,
     status: character.loraStatus,
     weightHint: DEFAULT_WEIGHT,
+    triggerWord: character.triggerWord,
   };
 }
 
@@ -91,7 +99,7 @@ export async function enqueueLoraTraining(input: LoraTrainInput): Promise<LoraTr
 
   await prisma.character.update({
     where: { id: characterId },
-    data: { loraStatus: "QUEUED" },
+    data: { loraStatus: "QUEUED", triggerWord: triggerWord || undefined },
   });
 
   if (LORA_API_URL && LORA_API_KEY) {
@@ -134,10 +142,7 @@ async function trainLoraRemote(
   const recipe = input.recipe ?? {};
   const res = await fetch(`${LORA_API_URL}/v1/lora/train`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${LORA_API_KEY}`,
-    },
+    headers: loraWorkerHeaders(LORA_API_KEY, input.characterId),
     body: JSON.stringify({
       job_id: jobId,
       character_id: input.characterId,
@@ -211,6 +216,7 @@ async function startSimulatedTraining(
     data: {
       loraStatus: "TRAINING",
       loraAdapterId: adapterId,
+      triggerWord: triggerWord || undefined,
     },
   });
 
@@ -248,6 +254,16 @@ export async function tickLoraJobProgress(characterId: string) {
   let activeJob = latest;
 
   if (
+    LORA_API_URL &&
+    LORA_API_KEY &&
+    (latest.status === "TRAINING" || latest.status === "QUEUED")
+  ) {
+    try {
+      activeJob = (await syncRemoteLoraJob(characterId, latest)) ?? latest;
+    } catch (err) {
+      console.error("[lora] worker job sync failed:", err);
+    }
+  } else if (
     isDemoMode() &&
     !LORA_API_URL &&
     (latest.status === "TRAINING" || latest.status === "QUEUED") &&
@@ -272,6 +288,7 @@ export async function tickLoraJobProgress(characterId: string) {
           loraStatus: "READY",
           loraAdapterId: latest.adapterId,
           loraVersion: { increment: 1 },
+          triggerWord: latest.triggerWord ?? undefined,
         },
       });
     } else {
@@ -313,15 +330,66 @@ export function buildLoraSystemAugment(config: LoraAdapterConfig | null): string
     return "";
   }
 
+  const trigger = config.triggerWord ? `\ntrigger: ${config.triggerWord}` : "";
   return `
 [LoRA Adapter Active]
 adapter_id: ${config.adapterId}
-weight: ${config.weightHint}
+weight: ${config.weightHint}${trigger}
 instruction: 严格遵循 LoRA 微调后的人设权重，保持角色说话风格一致性，禁止 OOC（Out of Character）。`;
 }
 
 export async function getLoraJobStatus(jobId: string) {
   return prisma.loraTrainingJob.findUnique({ where: { id: jobId } });
+}
+
+function mapWorkerStatus(status: string): "QUEUED" | "TRAINING" | "READY" | "FAILED" {
+  const normalized = status.toLowerCase();
+  if (normalized === "ready" || normalized === "succeeded" || normalized === "success") return "READY";
+  if (normalized === "failed" || normalized === "error") return "FAILED";
+  if (normalized === "queued" || normalized === "pending") return "QUEUED";
+  return "TRAINING";
+}
+
+async function syncRemoteLoraJob(
+  characterId: string,
+  job: { id: string; adapterId: string | null; triggerWord: string | null },
+) {
+  if (!LORA_API_URL || !LORA_API_KEY) return null;
+  const res = await fetch(`${LORA_API_URL}/v1/lora/jobs/${job.id}`, {
+    headers: loraWorkerHeaders(LORA_API_KEY, characterId),
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as {
+    status?: string;
+    progress?: number;
+    adapter_id?: string;
+  };
+  const status = mapWorkerStatus(data.status ?? "training");
+  const progress = Math.max(0, Math.min(100, Number(data.progress) || 0));
+  const adapterId = data.adapter_id || job.adapterId;
+
+  const updated = await prisma.loraTrainingJob.update({
+    where: { id: job.id },
+    data: {
+      status,
+      progress: status === "READY" ? 100 : progress,
+      adapterId,
+      finishedAt: status === "READY" || status === "FAILED" ? new Date() : undefined,
+      errorMsg: status === "FAILED" ? "worker reported failure" : undefined,
+    },
+  });
+
+  await prisma.character.update({
+    where: { id: characterId },
+    data: {
+      loraStatus: status,
+      loraAdapterId: adapterId ?? undefined,
+      triggerWord: job.triggerWord ?? undefined,
+      ...(status === "READY" ? { loraVersion: { increment: 1 } } : {}),
+    },
+  });
+
+  return updated;
 }
 
 function parseDatasetImages(datasetNote: string | null): DatasetImage[] {
@@ -357,10 +425,18 @@ export async function generateWithLora(
       personality: true,
       speechStyle: true,
       bio: true,
+      identity: true,
+      worldRules: true,
+      brandVoice: true,
+      boundaries: true,
+      contentRating: true,
+      tagline: true,
+      triggerWord: true,
       avatarUrl: true,
       coverUrl: true,
       loraAdapterId: true,
       loraStatus: true,
+      loraVersion: true,
       voiceEmbeddingId: true,
       loraJobs: { orderBy: { createdAt: "desc" }, take: 1 },
     },
@@ -383,7 +459,7 @@ export async function generateWithLora(
 
   const latestJob = character.loraJobs[0];
   const dataset = parseDatasetImages(latestJob?.datasetNote ?? null);
-  const trigger = latestJob?.triggerWord?.trim();
+  const trigger = latestJob?.triggerWord?.trim() || character.triggerWord?.trim();
   const weight = input.weight ?? DEFAULT_WEIGHT;
   const steps = input.steps ?? 28;
   const batch = Math.min(4, Math.max(1, input.batch ?? 1));
@@ -403,6 +479,7 @@ export async function generateWithLora(
   if (LORA_INFERENCE_URL && character.loraAdapterId) {
     try {
       const remote = await generateImageRemote({
+        characterId: character.id,
         adapterId: character.loraAdapterId,
         prompt: fullPrompt,
         negativePrompt: input.negativePrompt,
@@ -530,6 +607,7 @@ export async function generateWithLora(
 }
 
 async function generateImageRemote(params: {
+  characterId: string;
   adapterId: string;
   prompt: string;
   negativePrompt?: string;
@@ -537,10 +615,7 @@ async function generateImageRemote(params: {
   steps: number;
   batch: number;
 }): Promise<{ images: string[] }> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (LORA_INFERENCE_API_KEY) {
-    headers.Authorization = `Bearer ${LORA_INFERENCE_API_KEY}`;
-  }
+  const headers = loraWorkerHeaders(LORA_INFERENCE_API_KEY, params.characterId);
   const res = await fetch(`${LORA_INFERENCE_URL}/v1/images/generations`, {
     method: "POST",
     headers,
@@ -625,7 +700,7 @@ function buildGatewayImagePrompt(
     .join(" ");
 }
 
-/** 远程 URL 原样返回；base64 data URI 落盘到 public/uploads/generated。 */
+/** 远程 URL 原样返回；base64 data URI 写入存储层。 */
 async function persistGeneratedImage(characterId: string, image: string): Promise<string> {
   if (!image.startsWith("data:")) return image;
 
@@ -633,9 +708,12 @@ async function persistGeneratedImage(characterId: string, image: string): Promis
   if (!match) return image;
 
   const ext = match[1] === "jpeg" ? "jpg" : match[1];
-  const dir = path.join(process.cwd(), "public", "uploads", "generated", characterId);
-  await mkdir(dir, { recursive: true });
-  const filename = `${randomUUID()}.${ext}`;
-  await writeFile(path.join(dir, filename), Buffer.from(match[2], "base64"));
-  return `/uploads/generated/${characterId}/${filename}`;
+  const stored = await putUpload({
+    kind: "generated",
+    characterId,
+    body: Buffer.from(match[2], "base64"),
+    contentType: `image/${match[1] === "jpg" ? "jpeg" : match[1]}`,
+    ext,
+  });
+  return stored.url;
 }

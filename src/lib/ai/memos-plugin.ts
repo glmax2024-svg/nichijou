@@ -14,6 +14,16 @@ import { MEMOS_QUERY_TOP_K } from "./types";
 const MEMOS_API_URL = process.env.MEMOS_API_URL;
 const MEMOS_API_KEY = process.env.MEMOS_API_KEY;
 
+function memosHeaders(userId: string, characterId?: string) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Nichijou-User-Id": userId,
+  };
+  if (characterId) headers["X-Nichijou-Character-Id"] = characterId;
+  if (MEMOS_API_KEY) headers.Authorization = `Bearer ${MEMOS_API_KEY}`;
+  return headers;
+}
+
 export class MemosQueryRequiredError extends Error {
   constructor(message: string) {
     super(message);
@@ -73,10 +83,7 @@ async function queryMemosRemote(
 ): Promise<MemoryEntry[]> {
   const res = await fetch(`${MEMOS_API_URL}/v1/memory/query`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${MEMOS_API_KEY}`,
-    },
+    headers: memosHeaders(userId, characterId),
     body: JSON.stringify({
       user_id: userId,
       agent_id: characterId,
@@ -110,10 +117,7 @@ async function storeMemosRemote(
 ): Promise<void> {
   const res = await fetch(`${MEMOS_API_URL}/v1/memory/store`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${MEMOS_API_KEY}`,
-    },
+    headers: memosHeaders(userId, characterId),
     body: JSON.stringify({
       user_id: userId,
       agent_id: characterId,
@@ -127,6 +131,25 @@ async function storeMemosRemote(
   if (!res.ok) {
     throw new Error(`Memos store failed: ${res.status}`);
   }
+}
+
+/** 删除远程记忆。未配置 Worker 时返回 false。characterId 为空则清该用户全部。 */
+export async function deleteMemosRemote(userId: string, characterId?: string): Promise<boolean> {
+  if (!MEMOS_API_URL || !MEMOS_API_KEY) return false;
+
+  const res = await fetch(`${MEMOS_API_URL}/v1/memory/delete`, {
+    method: "POST",
+    headers: memosHeaders(userId, characterId),
+    body: JSON.stringify({
+      user_id: userId,
+      agent_id: characterId ?? "",
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Memos delete failed: ${res.status}`);
+  }
+  return true;
 }
 
 async function queryMemosLocal(

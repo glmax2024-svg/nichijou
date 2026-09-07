@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { runChatPipeline } from "@/lib/ai/pipeline";
-import { getChatAccess } from "@/lib/chat-quota";
 import { z } from "zod";
-import { FailClosedError } from "@/lib/runtime";
-import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
+import { runChatPipeline } from "@/modules/agent";
+import { getChatAccess } from "@/modules/billing";
+import {
+  enforceAdultUser,
+  enforceContentPolicy,
+  enforceRateLimit,
+  failClosedResponse,
+  FailClosedError,
+} from "@/modules/governance";
 
 const schema = z.object({
   characterId: z.string(),
@@ -30,10 +35,17 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { characterId, message } = schema.parse(body);
 
+    const ageGate = await enforceAdultUser(session.user.id);
+    if (ageGate) return ageGate;
+
     const character = await prisma.character.findUnique({ where: { id: characterId } });
     if (!character) {
       return NextResponse.json({ error: "キャラクターが見つかりません" }, { status: 404 });
     }
+    const blocked = await enforceContentPolicy(message, "chat", {
+      contentRating: character.contentRating,
+    });
+    if (blocked) return blocked;
 
     const access = await getChatAccess(session.user.id, character);
     if (!access.canSend) {
@@ -93,6 +105,7 @@ export async function POST(request: Request) {
         memoriesUsed: pipeline.memoriesQueried.length,
         loraAdapterId: pipeline.loraAdapterId,
         memoryStored: pipeline.memoryStored,
+        bond: pipeline.bond,
       },
     });
   } catch (error) {

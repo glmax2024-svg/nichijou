@@ -14,6 +14,7 @@ import { mandatoryMemosQuery, mandatoryMemosStore } from "./memos-plugin";
 import { resolveLoraAdapter } from "./lora";
 import { generateWithPersona } from "./llm";
 import { pickChatScene } from "./model-router";
+import { loadBond, recordBondInteraction } from "@/lib/agent/relationship";
 
 export async function runChatPipeline(input: ChatPipelineInput): Promise<ChatPipelineOutput> {
   const { userId, character, history, userMessage } = input;
@@ -33,8 +34,9 @@ export async function runChatPipeline(input: ChatPipelineInput): Promise<ChatPip
 
   // Step 2: resolve LoRA adapter
   const loraConfig = await resolveLoraAdapter(character);
+  const bond = await loadBond(userId, character.id);
 
-  // Step 3: LLM inference (memory + LoRA)
+  // Step 3: LLM inference (memory + LoRA + persona/bond)
   const reply = await generateWithPersona({
     character,
     history,
@@ -43,6 +45,7 @@ export async function runChatPipeline(input: ChatPipelineInput): Promise<ChatPip
     loraConfig,
     scene,
     userId,
+    bond,
   });
 
   // Step 4: required Memos memory write
@@ -53,11 +56,20 @@ export async function runChatPipeline(input: ChatPipelineInput): Promise<ChatPip
     assistantReply: reply,
   });
 
+  const nextBond = await recordBondInteraction({
+    userId,
+    characterId: character.id,
+    type: "chat",
+    summary: userMessage,
+    delta: 1,
+  });
+
   return {
     reply,
     memoriesQueried,
     loraAdapterId: loraConfig?.adapterId ?? null,
     memoryStored,
+    bond: nextBond,
   };
 }
 

@@ -1,4 +1,5 @@
 import type { Character, LoraStatus } from "@prisma/client";
+import type { BondSnapshot } from "@/lib/agent/bond-display";
 
 export type ChatRole = "user" | "assistant" | "system";
 
@@ -10,7 +11,16 @@ export type ChatTurn = {
 export type CharacterPersona = Pick<
   Character,
   "id" | "name" | "personality" | "speechStyle" | "bio" | "loraAdapterId" | "loraStatus" | "voiceEmbeddingId"
->;
+> & {
+  loraVersion?: number;
+  tagline?: string | null;
+  identity?: string | null;
+  worldRules?: string | null;
+  brandVoice?: string | null;
+  boundaries?: string | null;
+  contentRating?: string | null;
+  triggerWord?: string | null;
+};
 
 export type MemoryEntry = {
   id: string;
@@ -26,6 +36,7 @@ export type LoraAdapterConfig = {
   status: LoraStatus;
   /** Weight hint passed to the LoRA service at inference. */
   weightHint: number;
+  triggerWord?: string | null;
 };
 
 export type ChatPipelineInput = {
@@ -43,6 +54,7 @@ export type ChatPipelineOutput = {
   memoriesQueried: MemoryEntry[];
   loraAdapterId: string | null;
   memoryStored: boolean;
+  bond: BondSnapshot | null;
 };
 
 export type VoiceEnrollInput = {

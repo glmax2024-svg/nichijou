@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getChatAccess } from "@/lib/chat-quota";
 import { generateTarotReading, buildTarotUserMessage } from "@/lib/ai/tarot-reading";
+import { enforceAdultUser } from "@/lib/security/age";
+import { enforceContentPolicy } from "@/lib/security/moderation";
 
 const cardSchema = z.object({
   id: z.string(),
@@ -32,6 +34,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { characterId, cards, question } = schema.parse(body);
 
+    const ageGate = await enforceAdultUser(session.user.id);
+    if (ageGate) return ageGate;
+
     const character = await prisma.character.findUnique({
       where: { id: characterId },
       select: {
@@ -40,6 +45,12 @@ export async function POST(request: Request) {
         personality: true,
         speechStyle: true,
         bio: true,
+        identity: true,
+        worldRules: true,
+        brandVoice: true,
+        boundaries: true,
+        contentRating: true,
+        tagline: true,
         loraAdapterId: true,
         loraStatus: true,
         voiceEmbeddingId: true,
@@ -50,6 +61,10 @@ export async function POST(request: Request) {
     if (!character) {
       return NextResponse.json({ error: "キャラクターが見つかりません" }, { status: 404 });
     }
+    const blocked = await enforceContentPolicy(question, "chat", {
+      contentRating: character.contentRating,
+    });
+    if (blocked) return blocked;
 
     const access = await getChatAccess(session.user.id, character);
     if (!access.canSend) {
