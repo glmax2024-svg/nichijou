@@ -60,8 +60,9 @@
 | 目的 | AI 角色拥有**永久记忆**，跨会话记住用户偏好与关系 |
 | Query | **每次对话前强制执行**，不可跳过 |
 | Store | **每次对话后强制写入** |
-| 生产 | 对接 `MEMOS_API_URL` + `MEMOS_API_KEY` |
+| 生产 | 对接 `MEMOS_API_URL` + `MEMOS_API_KEY`（本地 `npm run worker:memos`） |
 | 降级 | 本地 `CharacterMemory` 表 + 关键词检索 |
+| 删除 | 设置页 / `DELETE /api/ai/memory`；Worker `POST /v1/memory/delete` |
 | 调试 | `POST /api/ai/memory` 查看检索结果 |
 
 ---
@@ -69,8 +70,8 @@
 ## 环境变量
 
 ```bash
-# Memos 永久记忆
-MEMOS_API_URL=
+# Memos 永久记忆（本地默认独立进程 :3220）
+MEMOS_API_URL=http://127.0.0.1:3220
 MEMOS_API_KEY=
 
 # LoRA 训练 & 推理
@@ -78,8 +79,8 @@ LORA_TRAINING_API_URL=
 LORA_TRAINING_API_KEY=
 LORA_INFERENCE_API_URL=
 
-# TTS 声纹克隆
-TTS_CLONE_API_URL=
+# TTS 声纹克隆（本地默认独立进程 :3210）
+TTS_CLONE_API_URL=http://127.0.0.1:3210
 TTS_CLONE_API_KEY=
 
 # LLM / 生图 / TTS 统一网关（中转站）—— 见 AI_ROUTING.md

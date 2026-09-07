@@ -24,7 +24,7 @@
 ## 技術スタック
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS
-- Prisma + SQLite（開発）/ PostgreSQL（本番、`docker-compose.yml` 参照）
+- Prisma + PostgreSQL（`docker-compose.yml`）
 - NextAuth.js（Credentials 登录）
 - OpenAI API（チャット・下書き・TTS）
 - Stripe（订阅・单次付费，未配置时 Demo 模式）
@@ -33,9 +33,13 @@
 
 ```bash
 cd ~/Projects/nichijou
-cp .env.example .env   # 已有 .env 可跳过
+cp .env.example .env   # 已有 .env 可跳过，确认 DATABASE_URL 指向 Postgres
 npm install
+npm run db:up          # 启动 PostgreSQL
 npm run db:setup       # 创建数据库 + 种子数据
+npm run worker:lora    # 可选：独立 LoRA 算力进程（:3200）
+npm run worker:voice   # 可选：独立声纹进程（:3210）
+npm run worker:memos   # 可选：独立记忆进程（:3220）
 npm run dev
 ```
 
@@ -46,6 +50,7 @@ npm run dev
 | 角色 | メール | パスワード |
 |------|--------|------------|
 | 画师 | creator@demo.jp | demo123 |
+| 運営 | admin@demo.jp | demo123 |
 | ファン | fan@demo.jp | demo123 |
 
 デモキャラ「葵」: `/characters/aoi`
@@ -67,15 +72,23 @@ npm run dev
 | `/login` | 登录 / 注册 |
 | `/subscriptions` | 我的订阅 |
 | `/studio` | 画师工作室 |
+| `/studio/earnings` | 画师收益账本 |
+| `/admin/revenue` | 运营分成与限时活动 |
+| `/admin/gifts` | 礼物图录（名称/价格/图标/动画） |
 
 ## 后续 Roadmap
 
-- [ ] Stripe Checkout 完整接入
+- [x] Stripe Checkout + Webhook（订阅 / 礼物 / 语音订单）
 - [ ] LINE Login（日本用户）
-- [ ] 内容审核与年龄分级
-- [ ] 画师分成结算
+- [x] 内容审核与年龄门（18歳、チャット/投稿）
+- [x] 利用規約・プライバシー・特定商取引法表記
+- [x] Agent 01 最小切片（人格容器 / 关系快照 / 社交边界 / LoRA Worker 鉴权）
+- [x] 模块入口（agent / governance / billing / media）+ 技能插件注册
+- [x] 画师分成结算（默认 5:5、后台可调、限时加成）
 - [ ] ElevenLabs / 声优声线
-- [ ] PostgreSQL 生产部署
+- [x] 开发库切 PostgreSQL（compose；托管实例仍需自行部署）
+- [x] LoRA 算力独立进程（services/lora-worker，角色隔离）
+- [x] Voice / Memos 独立进程（声纹克隆、永久记忆、用户可删除）
 
 ## 许可证
 
