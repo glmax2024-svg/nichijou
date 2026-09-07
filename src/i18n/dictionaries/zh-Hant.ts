@@ -38,6 +38,13 @@ const zhHant: Dictionary = {
     roleAdmin: "管理員",
     roleFan: "粉絲",
     userFallback: "使用者",
+    eraseTitle: "刪除聊天與記憶",
+    eraseHint: "會刪除與角色的對話、記憶和關係快照。訂單、禮物與訂閱會保留。",
+    eraseOne: "刪除",
+    eraseAll: "刪除全部對話與記憶",
+    eraseConfirmOne: "要刪除與這個角色的對話和記憶嗎？",
+    eraseConfirmAll: "要刪除與所有角色的對話和記憶嗎？",
+    eraseDone: "已刪除。",
   },
   gender: {
     all: "全部",
@@ -117,6 +124,7 @@ const zhHant: Dictionary = {
   studio: {
     officialChars: "Official 角色",
     totalFans: "總粉絲",
+    earnings: "收益",
     estMrr: "預估 MRR",
     brandLine:
       "粉絲在 Profile 看到「Official by {name}」，從 Feed 點回覆進入 Chat，訂閱後解鎖私密內容與 IP 技能 — 完整品牌鏈路已打通。",

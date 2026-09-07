@@ -36,6 +36,14 @@ const ja = {
     roleAdmin: "管理者",
     roleFan: "ファン",
     userFallback: "ユーザー",
+    eraseTitle: "チャットと記憶の削除",
+    eraseHint:
+      "特定のキャラクターとの会話・記憶・関係スナップショットを消します。注文・ギフト・購読は残ります。",
+    eraseOne: "削除",
+    eraseAll: "すべての会話と記憶を削除",
+    eraseConfirmOne: "このキャラクターとの会話と記憶を削除します。よろしいですか？",
+    eraseConfirmAll: "すべてのキャラクターとの会話と記憶を削除します。よろしいですか？",
+    eraseDone: "削除しました。",
   },
   gender: {
     all: "すべて",
@@ -115,6 +123,7 @@ const ja = {
   studio: {
     officialChars: "Official キャラ",
     totalFans: "総推し",
+    earnings: "収益",
     estMrr: "推定 MRR",
     brandLine:
       "ファンは Profile で「Official by {name}」を見て、Feed の返信から Chat へ。登録後は限定コンテンツと IP スキルが解放される — ブランド導線がつながっています。",

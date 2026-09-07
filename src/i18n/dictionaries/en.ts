@@ -38,6 +38,14 @@ const en: Dictionary = {
     roleAdmin: "Admin",
     roleFan: "Fan",
     userFallback: "User",
+    eraseTitle: "Delete chats and memories",
+    eraseHint:
+      "Removes conversations, memories, and relationship snapshots with a character. Orders, gifts, and subscriptions stay.",
+    eraseOne: "Delete",
+    eraseAll: "Delete all chats and memories",
+    eraseConfirmOne: "Delete chats and memories with this character?",
+    eraseConfirmAll: "Delete chats and memories with every character?",
+    eraseDone: "Deleted.",
   },
   gender: {
     all: "All",
@@ -117,6 +125,7 @@ const en: Dictionary = {
   studio: {
     officialChars: "Official characters",
     totalFans: "Total fans",
+    earnings: "Earnings",
     estMrr: "Est. MRR",
     brandLine:
       "Fans see “Official by {name}” on the profile, jump from Feed replies into Chat, and unlock private content + IP skills after subscribing — the full brand loop is live.",
