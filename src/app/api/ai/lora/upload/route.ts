@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { mkdir, writeFile } from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { enforceRateLimit } from "@/lib/security/rate-limit";
+import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
+import { FailClosedError } from "@/lib/runtime";
+import { putUpload } from "@/lib/storage";
+import { enforceAdultUser } from "@/lib/security/age";
 
 const MAX_FILES = 40;
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -23,6 +23,9 @@ export async function POST(request: Request) {
     session.user.id,
   );
   if (limited) return limited;
+
+  const ageGate = await enforceAdultUser(session.user.id);
+  if (ageGate) return ageGate;
 
   try {
     const form = await request.formData();
@@ -50,9 +53,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `一次最多上传 ${MAX_FILES} 张` }, { status: 400 });
     }
 
-    const dir = path.join(process.cwd(), "public", "uploads", "lora", characterId);
-    await mkdir(dir, { recursive: true });
-
     const uploaded: { url: string; name: string; size: number }[] = [];
 
     for (const file of files) {
@@ -69,13 +69,15 @@ export async function POST(request: Request) {
         );
       }
 
-      const ext =
-        file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-      const filename = `${randomUUID()}.${ext}`;
       const buffer = Buffer.from(await file.arrayBuffer());
-      await writeFile(path.join(dir, filename), buffer);
+      const stored = await putUpload({
+        kind: "lora",
+        characterId,
+        body: buffer,
+        contentType: file.type,
+      });
       uploaded.push({
-        url: `/uploads/lora/${characterId}/${filename}`,
+        url: stored.url,
         name: file.name,
         size: file.size,
       });
@@ -83,6 +85,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ images: uploaded });
   } catch (error) {
+    if (error instanceof FailClosedError) {
+      return failClosedResponse(error);
+    }
     console.error("[lora/upload]", error);
     return NextResponse.json({ error: "上传失败" }, { status: 500 });
   }
