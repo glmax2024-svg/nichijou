@@ -1,16 +1,26 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { GIFT_OPTIONS } from "@/lib/stripe";
+import { createYenCheckout } from "@/lib/stripe";
 import { z } from "zod";
-import { FailClosedError, isDemoMode } from "@/lib/runtime";
+import { FailClosedError, isDemoMode, isStripeConfigured } from "@/lib/runtime";
 import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
+import { enforceAdultUser } from "@/lib/security/age";
+import { enforceContentPolicy } from "@/lib/security/moderation";
+import { recordBondInteraction } from "@/lib/agent/relationship";
+import { recordRevenueShare } from "@/lib/revenue/ledger";
+import { getGiftBySlug, listGiftCatalog, toPublicGift } from "@/lib/gifts/catalog";
 
 const schema = z.object({
   characterId: z.string(),
   giftType: z.string(),
   message: z.string().max(200).optional(),
 });
+
+export async function GET() {
+  const catalog = await listGiftCatalog();
+  return NextResponse.json({ gifts: catalog.map(toPublicGift) });
+}
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -27,14 +37,15 @@ export async function POST(request: Request) {
   if (limited) return limited;
 
   try {
-    if (!isDemoMode()) {
-      throw new FailClosedError("ギフト決済はまだ有効になっていません", "PAYMENTS_DISABLED");
-    }
-
     const body = await request.json();
     const { characterId, giftType, message } = schema.parse(body);
 
-    const gift = GIFT_OPTIONS.find((g) => g.id === giftType);
+    const ageGate = await enforceAdultUser(session.user.id);
+    if (ageGate) return ageGate;
+    const blocked = await enforceContentPolicy(message, "gift");
+    if (blocked) return blocked;
+
+    const gift = await getGiftBySlug(giftType);
     if (!gift) {
       return NextResponse.json({ error: "ギフトが見つかりません" }, { status: 400 });
     }
@@ -44,17 +55,69 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "キャラクターが見つかりません" }, { status: 404 });
     }
 
-    const record = await prisma.gift.create({
-      data: {
+    if (!isStripeConfigured()) {
+      if (!isDemoMode()) {
+        throw new FailClosedError("決済が未設定のためギフトを送れません", "PAYMENTS_DISABLED");
+      }
+
+      const record = await prisma.gift.create({
+        data: {
+          userId: session.user.id,
+          characterId,
+          giftType: gift.slug,
+          amount: gift.amount,
+          message,
+        },
+      });
+      await recordBondInteraction({
         userId: session.user.id,
         characterId,
-        giftType,
-        amount: gift.amount,
-        message,
+        type: "gift",
+        summary: `ギフト: ${gift.name}`,
+        delta: gift.intimacyDelta,
+      });
+      await recordRevenueShare({
+        characterId,
+        kind: "GIFT",
+        sourceId: `gift:${record.id}`,
+        grossAmount: gift.amount,
+      });
+
+      return NextResponse.json({
+        gift: record,
+        label: gift.name,
+        emoji: gift.emoji,
+        iconUrl: gift.iconUrl,
+        animationUrl: gift.animationUrl,
+        animationKind: gift.animationKind,
+        demo: true,
+      });
+    }
+
+    const checkout = await createYenCheckout({
+      userId: session.user.id,
+      amount: gift.amount,
+      name: `${character.name} へ ${gift.name}`,
+      successPath: "/gifts",
+      cancelPath: "/gifts",
+      metadata: {
+        kind: "gift",
+        userId: session.user.id,
+        characterId,
+        giftType: gift.slug,
+        amount: String(gift.amount),
+        message: message ?? "",
       },
     });
 
-    return NextResponse.json({ gift: record, label: gift.label, emoji: gift.emoji, demo: true });
+    return NextResponse.json({
+      checkoutUrl: checkout.url,
+      label: gift.name,
+      emoji: gift.emoji,
+      iconUrl: gift.iconUrl,
+      animationUrl: gift.animationUrl,
+      animationKind: gift.animationKind,
+    });
   } catch (error) {
     if (error instanceof FailClosedError) {
       return failClosedResponse(error);
