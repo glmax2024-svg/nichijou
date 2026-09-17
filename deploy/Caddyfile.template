@@ -1,0 +1,10 @@
+__APP_DOMAIN__ {
+	encode zstd gzip
+	# 生图可能要 1–3 分钟，别让代理先断开
+	reverse_proxy 127.0.0.1:3000 {
+		transport http {
+			read_timeout 300s
+			write_timeout 300s
+		}
+	}
+}
