@@ -10,6 +10,7 @@ import { VOICE_MIN_SAMPLE_SEC, VOICE_MAX_SAMPLE_SEC } from "./types";
 import { gatewaySpeech, isGatewayConfigured } from "./gateway";
 import { TTS_MODEL, TTS_VOICE } from "./model-router";
 import { FailClosedError, isDemoMode } from "@/lib/runtime";
+import { isZettaTtsConfigured, isZettaVoice, synthesizeZetta } from "./providers/zetta-tts";
 
 const TTS_API_URL = process.env.TTS_CLONE_API_URL;
 const TTS_API_KEY = process.env.TTS_CLONE_API_KEY;
@@ -124,7 +125,16 @@ export async function synthesizeWithVoiceClone(
   embeddingId: string | null | undefined,
   characterId?: string,
 ): Promise<Buffer | null> {
-  if (embeddingId && TTS_API_URL && TTS_API_KEY && characterId) {
+  // Zetta 日语 TTS（角色通过 voiceEmbeddingId = "zetta:<voice>" 绑定）
+  if (isZettaVoice(embeddingId) && isZettaTtsConfigured()) {
+    try {
+      return await synthesizeZetta(text);
+    } catch (err) {
+      console.error("[tts] zetta synthesis failed, falling back:", err);
+    }
+  }
+
+  if (embeddingId && !isZettaVoice(embeddingId) && TTS_API_URL && TTS_API_KEY && characterId) {
     try {
       const res = await fetch(`${TTS_API_URL}/v1/voice/synthesize`, {
         method: "POST",

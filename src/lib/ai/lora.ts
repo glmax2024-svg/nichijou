@@ -10,6 +10,7 @@ import { FailClosedError, isDemoMode } from "@/lib/runtime";
 import { putUpload } from "@/lib/storage";
 import { gatewayImage } from "./gateway";
 import { IMAGE_MODEL } from "./model-router";
+import { generateAnimaImages, isAnimaConfigured, parseAnimaAdapter } from "./providers/anima";
 import type {
   CharacterPersona,
   LoraAdapterConfig,
@@ -476,7 +477,56 @@ export async function generateWithLora(
     weight,
   );
 
-  if (LORA_INFERENCE_URL && character.loraAdapterId) {
+  // 0. Anima 生图服务（角色通过 loraAdapterId = "anima:<lora>" 绑定）
+  const animaLora = parseAnimaAdapter(character.loraAdapterId);
+  if (animaLora && isAnimaConfigured()) {
+    try {
+      const images = await generateAnimaImages({
+        lora: animaLora,
+        prompt: fullPrompt,
+        negativePrompt: input.negativePrompt,
+        strength: weight,
+        steps,
+        batch,
+      });
+      const results: LoraGenerateResult["items"] = [];
+      for (let i = 0; i < images.length; i++) {
+        // 远程图片在公网 HTTP 上，必须转存到自己的存储再给前端
+        const stored = await putUpload({
+          kind: "generated",
+          characterId: character.id,
+          body: images[i].body,
+          contentType: images[i].contentType,
+        });
+        const row = await prisma.loraGeneration.create({
+          data: {
+            characterId: character.id,
+            prompt: fullPrompt,
+            negativePrompt: input.negativePrompt ?? null,
+            imageUrl: stored.url,
+            textContent: i === 0 ? textContent : null,
+            weight,
+            steps,
+            status: "READY",
+          },
+        });
+        results.push({
+          id: row.id,
+          imageUrl: row.imageUrl,
+          textContent: row.textContent,
+          prompt: row.prompt,
+        });
+      }
+      return { items: results, adapterId: character.loraAdapterId!, triggerWord: trigger ?? null };
+    } catch (err) {
+      console.error("[lora] anima generate failed:", err);
+      if (!isDemoMode() && !IMAGE_MODEL) {
+        throw err instanceof Error ? err : new Error("生图服务失败");
+      }
+    }
+  }
+
+  if (LORA_INFERENCE_URL && character.loraAdapterId && !animaLora) {
     try {
       const remote = await generateImageRemote({
         characterId: character.id,

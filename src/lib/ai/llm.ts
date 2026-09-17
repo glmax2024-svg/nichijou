@@ -8,6 +8,7 @@
  */
 
 import type { CharacterPersona, ChatTurn, LoraAdapterConfig, MemoryEntry } from "./types";
+import { parseAnimaAdapter } from "./providers/anima";
 import { buildLoraSystemAugment, loraWorkerHeaders } from "./lora";
 import { formatMemoriesForPrompt } from "./memos-plugin";
 import { runSceneChat, getSceneConfig, type AiScene } from "./model-router";
@@ -37,7 +38,7 @@ export async function generateWithPersona(params: GenerateParams): Promise<strin
   const messages = buildMessages(params, scene);
 
   // 1. 自建 LoRA 推理优先 —— 自有算力，且人设一致性最好
-  if (params.loraConfig && LORA_INFERENCE_URL) {
+  if (params.loraConfig && LORA_INFERENCE_URL && !parseAnimaAdapter(params.loraConfig.adapterId)) {
     try {
       return await generateViaLoraInference(params, messages, config.maxTokens);
     } catch (err) {
