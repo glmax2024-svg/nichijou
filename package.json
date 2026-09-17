@@ -18,7 +18,8 @@
     "ai:smoke": "node scripts/gateway-smoke.mjs",
     "worker:lora": "node services/lora-worker/server.mjs",
     "worker:voice": "node services/voice-worker/server.mjs",
-    "worker:memos": "node services/memos-worker/server.mjs"
+    "worker:memos": "node services/memos-worker/server.mjs",
+    "characters:upsert": "tsx --env-file=.env scripts/characters/upsert.ts"
   },
   "postinstall": "prisma generate",
   "dependencies": {
