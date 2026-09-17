@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { isMobileAppPath } from "@/lib/login-path";
 import LoginPageClient from "./login-client";
 import { isDemoMode } from "@/lib/runtime";
+import { isInviteOnly } from "@/lib/beta/invite";
 
 export default async function LoginPage({
   searchParams,
@@ -18,7 +19,7 @@ export default async function LoginPage({
 
   return (
     <Suspense>
-      <LoginPageClient showDemoHints={isDemoMode()} />
+      <LoginPageClient showDemoHints={isDemoMode()} inviteOnly={isInviteOnly()} />
     </Suspense>
   );
 }

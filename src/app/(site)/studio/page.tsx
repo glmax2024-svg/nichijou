@@ -49,6 +49,9 @@ export default async function StudioPage() {
             <Link href="/admin/gifts" className="text-[12px] font-bold text-[#ef7488] hover:underline">
               ギフト図録
             </Link>
+            <Link href="/admin/beta" className="text-[12px] font-bold text-[#ef7488] hover:underline">
+              β版テスター
+            </Link>
           </div>
         )}
         <StudioDashboard creator={creator} characters={characters} />

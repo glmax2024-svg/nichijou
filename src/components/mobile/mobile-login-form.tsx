@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { MIcon } from "@/components/ui/m-icon";
 import { RegisterComplianceFields } from "@/components/legal/register-compliance-fields";
 
@@ -11,17 +12,22 @@ export function MobileLoginForm({
   embedded = false,
   showDemoHints = false,
   legalBasePath = "/h5",
+  inviteOnly = true,
 }: {
   defaultCallbackUrl?: string;
   embedded?: boolean;
   showDemoHints?: boolean;
   legalBasePath?: "" | "/h5" | "/app";
+  inviteOnly?: boolean;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? defaultCallbackUrl;
+  const inviteFromLink = searchParams.get("invite") ?? "";
 
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register">(
+    inviteFromLink || searchParams.get("mode") === "register" ? "register" : "login",
+  );
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
@@ -30,6 +36,7 @@ export function MobileLoginForm({
     name: "",
     birthDate: "",
     acceptedTerms: false,
+    inviteCode: inviteFromLink,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -47,6 +54,7 @@ export function MobileLoginForm({
             name: form.name,
             birthDate: form.birthDate,
             acceptedTerms: form.acceptedTerms,
+            inviteCode: form.inviteCode,
           }),
         });
         if (!res.ok) {
@@ -116,13 +124,32 @@ export function MobileLoginForm({
                 : "text-[#8a7a72]"
             }`}
           >
-            新規登録
+            {inviteOnly ? "招待コードで登録" : "新規登録"}
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
           {mode === "register" && (
             <>
+              {inviteOnly && (
+                <>
+                  <label className="mt-5 block text-xs font-bold text-[#8a7a72]">招待コード</label>
+                  <div className="mt-1.5 flex items-center gap-2 rounded-[13px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-3.5 py-3">
+                    <MIcon name="key" className="text-[19px] text-[#c2b4ac]" />
+                    <input
+                      type="text"
+                      required
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                      spellCheck={false}
+                      value={form.inviteCode}
+                      onChange={(e) => setForm({ ...form, inviteCode: e.target.value })}
+                      className="flex-1 bg-transparent font-mono text-[13.5px] tracking-wider outline-none"
+                      placeholder="NJ-XXXX-XXXX"
+                    />
+                  </div>
+                </>
+              )}
               <label className="mt-5 block text-xs font-bold text-[#8a7a72]">表示名</label>
               <div className="mt-1.5 flex items-center gap-2 rounded-[13px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-3.5 py-3">
                 <MIcon name="person" className="text-[19px] text-[#c2b4ac]" />
@@ -187,6 +214,16 @@ export function MobileLoginForm({
             {loading ? "処理中…" : mode === "login" ? "ログイン" : "登録する"}
           </button>
         </form>
+
+        {inviteOnly && (
+          <p className="mt-4 text-center text-[12.5px] leading-[1.7] text-[#8a7a72]">
+            β版テスト中・招待制です
+            <br />
+            <Link href="/beta" className="font-bold text-[#ef7488]">
+              招待コードがない方はテスターに応募 →
+            </Link>
+          </p>
+        )}
 
         {mode === "login" && showDemoHints && (
           <p className="mt-4 text-center text-[11.5px] leading-[1.7] text-[#b0a099]">

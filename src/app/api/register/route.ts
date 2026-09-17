@@ -8,6 +8,7 @@ import {
   parseBirthDateInput,
   underageResponse,
 } from "@/lib/security/age";
+import { InviteCodeError, isInviteOnly, redeemInviteCode } from "@/lib/beta/invite";
 
 const schema = z.object({
   email: z.string().email(),
@@ -15,6 +16,7 @@ const schema = z.object({
   name: z.string().min(1),
   birthDate: z.string(),
   acceptedTerms: z.literal(true),
+  inviteCode: z.string().max(40).optional(),
 });
 
 export async function POST(request: Request) {
@@ -37,22 +39,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "このメールアドレスは既に登録されています" }, { status: 400 });
     }
 
+    const inviteOnly = isInviteOnly();
+    if (inviteOnly && !data.inviteCode?.trim()) {
+      return NextResponse.json({ error: "招待コードを入力してください", field: "inviteCode" }, { status: 400 });
+    }
+
     const passwordHash = await bcrypt.hash(data.password, 10);
     const now = new Date();
-    const user = await prisma.user.create({
-      data: {
-        email: data.email,
-        name: data.name,
-        role: "FAN",
-        passwordHash,
-        birthDate,
-        ageVerifiedAt: now,
-        termsAcceptedAt: now,
-      },
+    // 占用邀请码和建用户放在同一个事务里：建号失败时名额不会被白白消耗
+    const user = await prisma.$transaction(async (tx) => {
+      const invite = inviteOnly ? await redeemInviteCode(tx, data.inviteCode!, data.email) : null;
+      return tx.user.create({
+        data: {
+          email: data.email,
+          name: data.name,
+          role: invite?.grantRole ?? "FAN",
+          inviteCodeId: invite?.inviteCodeId ?? null,
+          passwordHash,
+          birthDate,
+          ageVerifiedAt: now,
+          termsAcceptedAt: now,
+        },
+      });
     });
 
     return NextResponse.json({ id: user.id, email: user.email, role: user.role });
   } catch (error) {
+    if (error instanceof InviteCodeError) {
+      return NextResponse.json({ error: error.message, field: "inviteCode" }, { status: 400 });
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: "入力内容と利用規約への同意を確認してください" },

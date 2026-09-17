@@ -74,6 +74,8 @@ model User {
   bonds             CharacterBond[]
   creatorShareBps   Int?
   earnings          CreatorEarning[]
+  inviteCodeId      String?
+  inviteCode        InviteCode?    @relation(fields: [inviteCodeId], references: [id], onDelete: SetNull)
 }
 
 model Account {
@@ -467,4 +469,55 @@ model GiftItem {
   updatedAt     DateTime @updatedAt
 
   @@index([active, sortOrder])
+}
+
+enum BetaApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// 内测申请。按邮箱去重：同一邮箱重复提交时更新待审核的那条。
+model BetaApplication {
+  id           String                @id @default(cuid())
+  email        String
+  nickname     String
+  /// FAN | CREATOR —— 申请人自报，审核时可以改
+  userType     UserRole              @default(FAN)
+  twitterUrl   String?
+  pixivUrl     String?
+  /// LINE | DISCORD | X_DM | OTHER
+  contactType  String
+  contactValue String
+  intro        String                @db.Text
+  status       BetaApplicationStatus @default(PENDING)
+  reviewNote   String?               @db.Text
+  reviewedAt   DateTime?
+  reviewedById String?
+  inviteCode   InviteCode?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+/// 邀请码。email 非空时只允许该邮箱注册；grantRole 决定注册后的身份。
+model InviteCode {
+  id            String           @id @default(cuid())
+  code          String           @unique
+  note          String?
+  grantRole     UserRole         @default(FAN)
+  email         String?
+  maxUses       Int              @default(1)
+  usedCount     Int              @default(0)
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  createdById   String?
+  applicationId String?          @unique
+  application   BetaApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  users         User[]
+  createdAt     DateTime         @default(now())
+
+  @@index([createdAt])
 }

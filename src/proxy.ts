@@ -1,26 +1,77 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { decode } from "@auth/core/jwt";
 
-function hasSessionCookie(request: NextRequest) {
-  return (
-    request.cookies.has("authjs.session-token") ||
-    request.cookies.has("__Secure-authjs.session-token")
-  );
+const SESSION_COOKIES = ["__Secure-authjs.session-token", "authjs.session-token"] as const;
+
+/** 未登录也能访问的页面（内测期整站需要登录） */
+const PUBLIC_PAGES = [/^\/login$/, /^\/(h5|app)\/login$/, /^\/beta$/, /^\/((h5|app)\/)?legal\/[^/]+$/];
+
+/** 未登录也能调用的接口。其余接口在路由里仍各自鉴权，这里只是多一道门。 */
+const PUBLIC_APIS = [
+  /^\/api\/auth\//,
+  /^\/api\/register$/,
+  /^\/api\/beta\/apply$/,
+  /^\/api\/mobile\/login$/,
+  /^\/api\/webhooks\//,
+];
+
+function isInviteOnly() {
+  return process.env.NICHIJOU_INVITE_ONLY?.trim().toLowerCase() !== "false";
 }
 
-export function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  if (pathname.startsWith("/uploads/lora/") && !hasSessionCookie(request)) {
-    return new NextResponse("Forbidden", { status: 403 });
+/** 真正解密校验 JWT —— 只看 cookie 在不在的话，随便塞一个假 cookie 就能绕过 */
+async function hasValidSession(request: NextRequest): Promise<boolean> {
+  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  if (!secret) return false;
+  for (const name of SESSION_COOKIES) {
+    const token = request.cookies.get(name)?.value;
+    if (!token) continue;
+    try {
+      // Auth.js 用 cookie 名作为 salt
+      const payload = await decode({ token, secret, salt: name });
+      if (payload?.sub || payload?.id) return true;
+    } catch {
+      // 过期、篡改或密钥更换 → 视为未登录
+    }
   }
+  return false;
+}
 
-  const response = NextResponse.next();
+function withSecurityHeaders(response: NextResponse) {
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("X-DNS-Prefetch-Control", "off");
   return response;
+}
+
+export async function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+
+  if (pathname.startsWith("/uploads/lora/") && !(await hasValidSession(request))) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // public/ 下的静态文件（图片、图标、字体等）
+  const isStaticFile = /\.[a-z0-9]+$/i.test(pathname) && !pathname.startsWith("/api/");
+
+  if (isInviteOnly() && !isStaticFile) {
+    const isApi = pathname.startsWith("/api/");
+    const isPublic = (isApi ? PUBLIC_APIS : PUBLIC_PAGES).some((re) => re.test(pathname));
+
+    if (!isPublic && !(await hasValidSession(request))) {
+      if (isApi) {
+        return withSecurityHeaders(NextResponse.json({ error: "ログインが必要です" }, { status: 401 }));
+      }
+      const loginPath = pathname.startsWith("/h5") ? "/h5/login" : pathname.startsWith("/app") ? "/app/login" : "/login";
+      const url = new URL(loginPath, request.url);
+      if (pathname !== "/") url.searchParams.set("callbackUrl", `${pathname}${search}`);
+      return withSecurityHeaders(NextResponse.redirect(url));
+    }
+  }
+
+  return withSecurityHeaders(NextResponse.next());
 }
 
 export const config = {

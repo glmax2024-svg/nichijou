@@ -8,12 +8,22 @@ import { MIcon } from "@/components/ui/m-icon";
 import { AmbientBg } from "@/components/ui/ambient-bg";
 import { RegisterComplianceFields } from "@/components/legal/register-compliance-fields";
 
-export default function LoginPageClient({ showDemoHints = false }: { showDemoHints?: boolean }) {
+export default function LoginPageClient({
+  showDemoHints = false,
+  inviteOnly = true,
+}: {
+  showDemoHints?: boolean;
+  inviteOnly?: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  // 审核通过后发出的链接形如 /login?invite=NJ-XXXX-XXXX，直接进入注册并填好邀请码
+  const inviteFromLink = searchParams.get("invite") ?? "";
 
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register">(
+    inviteFromLink || searchParams.get("mode") === "register" ? "register" : "login",
+  );
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({
@@ -22,6 +32,7 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
     name: "",
     birthDate: "",
     acceptedTerms: false,
+    inviteCode: inviteFromLink,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,6 +50,7 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
             name: form.name,
             birthDate: form.birthDate,
             acceptedTerms: form.acceptedTerms,
+            inviteCode: form.inviteCode,
           }),
         });
         if (!res.ok) {
@@ -118,7 +130,7 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
                       : "text-[#8a7a72]"
                   }`}
                 >
-                  新規登録
+                  {inviteOnly ? "招待コードで登録" : "新規登録"}
                 </button>
               </div>
 
@@ -132,6 +144,25 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
               <form onSubmit={handleSubmit} className="mt-5 flex flex-1 flex-col">
                 {mode === "register" && (
                   <>
+                    {inviteOnly && (
+                      <>
+                        <label className="text-xs font-bold text-[#8a7a72]">招待コード</label>
+                        <div className="mb-4 mt-1.5 flex items-center gap-2 rounded-[14px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-4 py-3">
+                          <MIcon name="key" className="text-[20px] text-[#c2b4ac]" />
+                          <input
+                            type="text"
+                            required
+                            autoCapitalize="characters"
+                            autoComplete="off"
+                            spellCheck={false}
+                            value={form.inviteCode}
+                            onChange={(e) => setForm({ ...form, inviteCode: e.target.value })}
+                            className="flex-1 bg-transparent font-mono text-sm tracking-wider outline-none"
+                            placeholder="NJ-XXXX-XXXX"
+                          />
+                        </div>
+                      </>
+                    )}
                     <label className="text-xs font-bold text-[#8a7a72]">表示名</label>
                     <div className="mt-1.5 flex items-center gap-2 rounded-[14px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-4 py-3">
                       <MIcon name="person" className="text-[20px] text-[#c2b4ac]" />
@@ -195,6 +226,18 @@ export default function LoginPageClient({ showDemoHints = false }: { showDemoHin
                   {loading ? "処理中…" : mode === "login" ? "ログイン" : "登録する"}
                 </button>
               </form>
+
+              {inviteOnly && (
+                <div className="mt-5 rounded-[14px] border border-dashed border-[rgba(239,116,136,0.35)] bg-[#fff7f8] p-4 text-[13px] leading-relaxed text-[#6a4a52]">
+                  <span className="font-bold text-[#3a3330]">現在 β版テスト中です。</span>
+                  <br />
+                  招待コードをお持ちでない方は、テスターに応募できます。
+                  <Link href="/beta" className="mt-2 flex w-fit items-center gap-1 font-bold text-[#ef7488] hover:underline">
+                    β版テスターに応募する
+                    <MIcon name="arrow_forward" className="text-[16px]" />
+                  </Link>
+                </div>
+              )}
 
               {mode === "login" && showDemoHints && (
                 <div className="mt-5 rounded-[14px] bg-[#faf5f2] p-4 text-xs leading-relaxed text-[#8a7a72]">

@@ -19,7 +19,9 @@
     "worker:lora": "node services/lora-worker/server.mjs",
     "worker:voice": "node services/voice-worker/server.mjs",
     "worker:memos": "node services/memos-worker/server.mjs",
-    "characters:upsert": "tsx --env-file=.env scripts/characters/upsert.ts"
+    "characters:upsert": "tsx --env-file=.env scripts/characters/upsert.ts",
+    "users:create": "tsx --env-file=.env scripts/beta/create-user.ts",
+    "invites:create": "tsx --env-file=.env scripts/beta/create-invites.ts"
   },
   "postinstall": "prisma generate",
   "dependencies": {
