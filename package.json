@@ -21,7 +21,8 @@
     "worker:memos": "node services/memos-worker/server.mjs",
     "characters:upsert": "tsx --env-file=.env scripts/characters/upsert.ts",
     "users:create": "tsx --env-file=.env scripts/beta/create-user.ts",
-    "invites:create": "tsx --env-file=.env scripts/beta/create-invites.ts"
+    "invites:create": "tsx --env-file=.env scripts/beta/create-invites.ts",
+    "icons:sync": "node scripts/icons/sync.mjs"
   },
   "postinstall": "prisma generate",
   "dependencies": {
