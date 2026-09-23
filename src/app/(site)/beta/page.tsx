@@ -1,10 +1,6 @@
-import type { Metadata } from "next";
-import { BetaApplyClient } from "./beta-apply-client";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "β版テスター募集 | 日常 Nichijou",
-};
-
+/** 応募フォームはログイン画面のタブに統合した。既に配布したリンクのためにリダイレクトだけ残す。 */
 export default function BetaApplyPage() {
-  return <BetaApplyClient />;
+  redirect("/login?tab=apply");
 }

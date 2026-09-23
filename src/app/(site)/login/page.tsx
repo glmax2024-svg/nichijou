@@ -8,9 +8,9 @@ import { isInviteOnly } from "@/lib/beta/invite";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; invite?: string; tab?: string; mode?: string }>;
 }) {
-  const { callbackUrl } = await searchParams;
+  const { callbackUrl, invite, tab, mode } = await searchParams;
 
   if (callbackUrl && isMobileAppPath(callbackUrl)) {
     const loginRoot = callbackUrl.startsWith("/h5") ? "/h5/login" : "/app/login";
@@ -19,7 +19,12 @@ export default async function LoginPage({
 
   return (
     <Suspense>
-      <LoginPageClient showDemoHints={isDemoMode()} inviteOnly={isInviteOnly()} />
+      {/* 表单状态只在挂载时读取地址参数；站内跳到另一个邀请链接时要重新挂载，否则会沿用旧的码 */}
+      <LoginPageClient
+        key={[invite, tab, mode].join("|")}
+        showDemoHints={isDemoMode()}
+        inviteOnly={isInviteOnly()}
+      />
     </Suspense>
   );
 }
