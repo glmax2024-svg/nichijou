@@ -11,6 +11,7 @@ import { storeMediaAsset, resolveMediaUrl } from "@/lib/media";
 import { gatewayImage } from "./gateway";
 import { IMAGE_MODEL } from "./model-router";
 import { generateAnimaImages, isAnimaConfigured, parseAnimaAdapter } from "./providers/anima";
+import { syncTrainingJob } from "./lora-training";
 import type {
   CharacterPersona,
   LoraAdapterConfig,
@@ -254,7 +255,9 @@ export async function tickLoraJobProgress(characterId: string) {
 
   let activeJob = latest;
 
-  if (
+  if (latest.provider === "anima") {
+    activeJob = await syncTrainingJob(latest);
+  } else if (
     LORA_API_URL &&
     LORA_API_KEY &&
     (latest.status === "TRAINING" || latest.status === "QUEUED")

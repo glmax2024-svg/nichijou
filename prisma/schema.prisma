@@ -302,7 +302,34 @@ model LoraTrainingJob {
   startedAt   DateTime?
   finishedAt  DateTime?
   createdAt   DateTime   @default(now())
+  /// anima = 外部训练服务；空 = 旧的本地 worker / 模拟训练
+  provider           String?
+  /// 训练服务侧的任务 id
+  remoteJobId        String?
+  /// 训练服务侧的角色名（nj_<characterId>），同一角色多次训练共用，版本递增
+  remoteCharacter    String?
+  /// 提交时的幂等键（32 位十六进制），重试复用
+  requestKey         String?
+  /// 训练服务的原始状态（tagging / waiting_gpu / generating_previews ...）
+  remoteStatus       String?
+  revision           Int?
+  /// 固定版本的 LoRA id（nj_xxx__v2）。角色引用它而不是别名，重训不会悄悄改变已发布角色的长相
+  loraId             String?
+  readyForGeneration Boolean   @default(false)
+  step               Int?
+  totalSteps         Int?
+  queuePosition      Int?
+  errorCode          String?
+  imageCount         Int?
+  duplicatesRemoved  Int?
+  /// [{ angle, assetId, url }]，三个角度的预览图（已转存到自己的存储）
+  previews           Json?
+  trainingStartedAt  DateTime?
+  /// 画师把这个版本设为角色当前使用版本的时间
+  activatedAt        DateTime?
   character   Character  @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([remoteJobId])
 }
 
 /// LoRA 生成结果 — 画师用已训练 adapter 出图 / 出文案
@@ -575,4 +602,26 @@ model MediaAsset {
   @@index([userId, createdAt])
   @@index([characterId, createdAt])
   @@index([sha256])
+}
+
+/// 训练次数计费记录。不挂外键：删除角色后仍然计入当月额度，防止「删了再建」刷次数。
+model LoraTrainingCharge {
+  id          String   @id @default(cuid())
+  creatorId   String
+  characterId String
+  jobId       String   @unique
+  createdAt   DateTime @default(now())
+
+  @@index([creatorId, createdAt])
+}
+
+/// 远端清理失败时留下的待办（例如删除角色时训练任务还没结束），之后重试
+model PendingRemoteDeletion {
+  id          String   @id @default(cuid())
+  kind        String
+  remoteId    String   @unique
+  attempts    Int      @default(0)
+  lastError   String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

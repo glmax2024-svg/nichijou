@@ -125,3 +125,23 @@ export async function generateAnimaImages(params: {
   }
   return images;
 }
+
+export type AnimaLoraInfo = {
+  id: string;
+  triggerWord?: string;
+  /** 从训练标注统计出的推荐提示词前缀，如 "laiwanting, one girl, red hair" */
+  recommendedPromptPrefix?: string;
+};
+
+/** 生图服务的动态 LoRA 目录（训练完成并注册后会出现在这里） */
+export async function getAnimaLora(id: string): Promise<AnimaLoraInfo | null> {
+  if (!ANIMA_API_URL || !ANIMA_API_KEY) return null;
+  const res = await fetch(`${ANIMA_API_URL}/loras`, {
+    headers: headers(),
+    redirect: "error",
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!res.ok) throw new Error(`Anima loras error: ${res.status}`);
+  const data = (await res.json()) as { loras?: AnimaLoraInfo[] };
+  return data.loras?.find((l) => l.id === id) ?? null;
+}
