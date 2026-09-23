@@ -8,7 +8,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import { putUpload } from "@/lib/storage";
+import { resolveMediaUrl, storeMediaAsset } from "@/lib/media";
 import { generateAnimaImages, parseAnimaAdapter } from "@/lib/ai/providers/anima";
 import { ROSTER, type RosterCharacter, type RosterMedia } from "./roster";
 
@@ -37,13 +37,16 @@ async function renderMedia(c: RosterCharacter, characterId: string, media: Roste
     height: media.height,
     seed: media.seed,
   });
-  const stored = await putUpload({
-    kind: "generated",
-    characterId,
+  const asset = await storeMediaAsset({
+    kind: "IMAGE",
+    visibility: "PUBLIC",
     body: image.body,
     contentType: image.contentType,
+    source: "anima",
+    characterId,
+    sourceMeta: { lora, prompt: media.prompt, seed: image.seed, withCharacter: media.withCharacter },
   });
-  return { url: stored.url, seed: image.seed };
+  return { url: resolveMediaUrl(asset), seed: image.seed };
 }
 
 async function main() {

@@ -7,7 +7,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { FailClosedError, isDemoMode } from "@/lib/runtime";
-import { putUpload } from "@/lib/storage";
+import { storeMediaAsset, resolveMediaUrl } from "@/lib/media";
 import { gatewayImage } from "./gateway";
 import { IMAGE_MODEL } from "./model-router";
 import { generateAnimaImages, isAnimaConfigured, parseAnimaAdapter } from "./providers/anima";
@@ -491,19 +491,31 @@ export async function generateWithLora(
       });
       const results: LoraGenerateResult["items"] = [];
       for (let i = 0; i < images.length; i++) {
-        // 远程图片在公网 HTTP 上，必须转存到自己的存储再给前端
-        const stored = await putUpload({
-          kind: "generated",
-          characterId: character.id,
+        // 远程图片在公网上，必须转存到自己的存储再给前端
+        const asset = await storeMediaAsset({
+          kind: "IMAGE",
+          visibility: "PUBLIC",
           body: images[i].body,
           contentType: images[i].contentType,
+          source: "anima",
+          characterId: character.id,
+          sourceMeta: {
+            lora: animaLora,
+            prompt: fullPrompt,
+            negativePrompt: input.negativePrompt ?? null,
+            weight,
+            steps,
+            seed: images[i].seed,
+            remoteId: images[i].remoteId,
+          },
         });
         const row = await prisma.loraGeneration.create({
           data: {
             characterId: character.id,
             prompt: fullPrompt,
             negativePrompt: input.negativePrompt ?? null,
-            imageUrl: stored.url,
+            assetId: asset.id,
+            imageUrl: resolveMediaUrl(asset),
             textContent: i === 0 ? textContent : null,
             weight,
             steps,
@@ -579,13 +591,17 @@ export async function generateWithLora(
 
       const results: LoraGenerateResult["items"] = [];
       for (let i = 0; i < remote.images.length; i++) {
-        const imageUrl = await persistGeneratedImage(character.id, remote.images[i]);
+        const asset = await persistGeneratedImage(character.id, remote.images[i], {
+          prompt: fullPrompt,
+          model: IMAGE_MODEL,
+        });
         const row = await prisma.loraGeneration.create({
           data: {
             characterId: character.id,
             prompt: fullPrompt,
             negativePrompt: input.negativePrompt ?? null,
-            imageUrl,
+            assetId: asset?.id ?? null,
+            imageUrl: asset ? resolveMediaUrl(asset) : remote.images[i],
             textContent: i === 0 ? textContent : null,
             weight,
             steps,
@@ -751,19 +767,24 @@ function buildGatewayImagePrompt(
 }
 
 /** 远程 URL 原样返回；base64 data URI 写入存储层。 */
-async function persistGeneratedImage(characterId: string, image: string): Promise<string> {
-  if (!image.startsWith("data:")) return image;
+/** 网关返回的是 data URI；转存并登记。非 data URI（外链）返回 null，由调用方沿用原地址。 */
+async function persistGeneratedImage(
+  characterId: string,
+  image: string,
+  meta: { prompt: string; model?: string },
+) {
+  const match = image.startsWith("data:")
+    ? image.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.*)$/)
+    : null;
+  if (!match) return null;
 
-  const match = image.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.*)$/);
-  if (!match) return image;
-
-  const ext = match[1] === "jpeg" ? "jpg" : match[1];
-  const stored = await putUpload({
-    kind: "generated",
-    characterId,
+  return storeMediaAsset({
+    kind: "IMAGE",
+    visibility: "PUBLIC",
     body: Buffer.from(match[2], "base64"),
     contentType: `image/${match[1] === "jpg" ? "jpeg" : match[1]}`,
-    ext,
+    source: "gateway",
+    characterId,
+    sourceMeta: { prompt: meta.prompt, model: meta.model ?? null },
   });
-  return stored.url;
 }

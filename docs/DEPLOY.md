@@ -47,31 +47,33 @@ ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIICqqiF0QjWXjIW7tzjcJDEFvDmY6FuEt6J/vI95/Evc
 
 ## 第 3 步：配置 Cloudflare R2（你来做）
 
-R2 就是存图片、语音文件的地方，类似网盘，但给程序用。
+R2 就是存图片、语音文件的地方，类似网盘，但给程序用。全程只需要建两个桶、创建一把密钥。
 
 ### 3.1 开通
 1. 登录 [Cloudflare 控制台](https://dash.cloudflare.com) → 左侧菜单 **R2 Object Storage**
 2. 首次使用要绑定付款方式（有免费额度：10GB 存储、流量免费，初期基本不花钱）
 
-### 3.2 建存储桶（bucket）
-1. 点 **Create bucket**
-2. 名称填 `nichijou-media`
-3. Location 选 **Asia-Pacific (APAC)**
-4. 创建
+### 3.2 建两个存储桶（bucket），都不开公开访问
+点 **Create bucket** 建两个，Location 都选 **Asia-Pacific (APAC)**：
 
-### 3.3 开放公开访问（让前端能显示图片）
-进入刚建的 bucket → **Settings** → **Public access**，二选一：
+| 桶名 | 放什么 |
+|---|---|
+| `nichijou-media` | 头像、封面、生成的图 —— 网站所有人都能看的内容 |
+| `nichijou-private` | 用户买的语音、私聊里的图片 —— 只有本人能看 |
 
-- **有 Cloudflare 上的域名（推荐）**：Custom Domains → Connect Domain → 填 `media.你的域名` → 按提示确认
-- **没有**：R2.dev subdomain → Allow Access（有访问频率限制，只适合测试）
+**两个桶都不要打开 Public access / Custom Domains / R2.dev subdomain。** 默认就是不公开的，建好什么都不用改。
 
-记下得到的公开地址，例如 `https://media.你的域名` 或 `https://pub-xxxx.r2.dev`。
+> 那图片怎么显示？网站自己从桶里读出来再返回给浏览器：
+> - 公开图片走 `https://<你的域名>/media/...`，带一年缓存，同一张图基本只会读一次桶
+> - 私有文件走 `https://<你的域名>/api/media/<id>`，先检查登录和权限，再发一个 10 分钟有效的临时链接
+>
+> 这样桶的地址从不暴露给用户。以后流量大了再考虑给公开桶接 CDN，改一个配置就行。
 
-### 3.4 创建访问密钥
+### 3.3 创建访问密钥
 1. 回到 R2 首页 → 右侧 **Manage R2 API Tokens**（或 API → Manage API tokens）
 2. **Create API token**
 3. Permissions 选 **Object Read & Write**
-4. Specify bucket 选 **只允许 `nichijou-media`**
+4. Specify bucket 选 **`nichijou-media` 和 `nichijou-private` 两个**
 5. 创建后页面会显示三个值（**只显示一次**，马上复制保存）：
    - **Access Key ID**
    - **Secret Access Key**
@@ -85,8 +87,8 @@ R2 就是存图片、语音文件的地方，类似网盘，但给程序用。
 |---|---|
 | 服务器 IP | `203.0.113.10` |
 | 完整域名 | `app.example.com` |
-| R2 公开地址 | `https://media.example.com` |
 | R2 Endpoint | `https://xxxx.r2.cloudflarestorage.com` |
+| 两个桶的名字 | `nichijou-media` / `nichijou-private` |
 
 **R2 的 Access Key ID 和 Secret 不要发在聊天里。** 我会生成 `deploy/.env.production`，其他值都预先填好，你只需要自己打开文件把这两个密钥填进去。
 

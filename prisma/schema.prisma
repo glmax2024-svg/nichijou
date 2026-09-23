@@ -76,6 +76,7 @@ model User {
   earnings          CreatorEarning[]
   inviteCodeId      String?
   inviteCode        InviteCode?    @relation(fields: [inviteCodeId], references: [id], onDelete: SetNull)
+  mediaAssets       MediaAsset[]
 }
 
 model Account {
@@ -156,6 +157,7 @@ model Character {
   bonds             CharacterBond[]
   creatorShareBps   Int?
   earnings          CreatorEarning[]
+  mediaAssets       MediaAsset[]
 }
 
 model Post {
@@ -249,6 +251,8 @@ model Order {
   scheduledAt DateTime?
   content     String?   @db.Text
   voiceUrl    String?
+  voiceAssetId String?
+  voiceAsset   MediaAsset? @relation("OrderVoiceAsset", fields: [voiceAssetId], references: [id], onDelete: SetNull)
   stripeSessionId String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -262,6 +266,8 @@ model VoiceClip {
   label       String
   text        String
   audioUrl    String?
+  audioAssetId String?
+  audioAsset   MediaAsset? @relation("VoiceClipAudioAsset", fields: [audioAssetId], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
   character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 }
@@ -306,6 +312,8 @@ model LoraGeneration {
   prompt         String    @db.Text
   negativePrompt String?   @db.Text
   imageUrl       String?
+  assetId        String?
+  asset          MediaAsset? @relation("LoraGenerationAsset", fields: [assetId], references: [id], onDelete: SetNull)
   textContent    String?   @db.Text
   weight         Float     @default(0.85)
   steps          Int       @default(28)
@@ -520,4 +528,51 @@ model InviteCode {
   createdAt     DateTime         @default(now())
 
   @@index([createdAt])
+}
+
+enum MediaKind {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum MediaVisibility {
+  /// CDN 直出，可长期缓存（头像、封面、公开动态配图）
+  PUBLIC
+  /// 只存 key，访问要经过 /api/media/[id] 鉴权（付费语音、私聊里的图）
+  PRIVATE
+}
+
+/// 所有二进制产物的统一记录。业务表只引用 id，不再存完整 URL。
+model MediaAsset {
+  id          String          @id @default(cuid())
+  kind        MediaKind
+  visibility  MediaVisibility @default(PUBLIC)
+  /// 对象存储里的 key，不含域名 —— 换 CDN / 换域名不需要改数据
+  storageKey  String          @unique
+  contentType String
+  bytes       Int
+  width       Int?
+  height      Int?
+  durationMs  Int?
+  /// 内容哈希，用于去重与校验
+  sha256      String
+  /// anima | zetta | gateway | upload
+  source      String
+  /// prompt、lora、seed、模型版本等，便于复现和排查
+  sourceMeta  Json?
+  characterId String?
+  character   Character?      @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  /// 仅属于某个用户的内容才有值；删除用户数据时按此清理
+  userId      String?
+  user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+
+  loraGenerations LoraGeneration[] @relation("LoraGenerationAsset")
+  orders          Order[]          @relation("OrderVoiceAsset")
+  voiceClips      VoiceClip[]      @relation("VoiceClipAudioAsset")
+
+  @@index([userId, createdAt])
+  @@index([characterId, createdAt])
+  @@index([sha256])
 }

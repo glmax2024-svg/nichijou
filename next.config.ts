@@ -46,6 +46,11 @@ const nextConfig: NextConfig = {
         search: "",
       },
       {
+        // 存储桶不公开时，公开图片由 src/app/media/[...key]/route.ts 转发
+        pathname: "/media/**",
+        search: "",
+      },
+      {
         pathname: "/discover/**",
         search: "",
       },

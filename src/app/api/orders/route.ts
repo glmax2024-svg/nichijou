@@ -10,6 +10,7 @@ import { enforceAdultUser } from "@/lib/security/age";
 import { enforceContentPolicy } from "@/lib/security/moderation";
 import { recordBondInteraction } from "@/lib/agent/relationship";
 import { recordRevenueShare } from "@/lib/revenue/ledger";
+import { persistOrderVoice } from "@/lib/order-voice";
 
 const schema = z.object({
   characterId: z.string(),
@@ -82,6 +83,13 @@ export async function POST(request: Request) {
     });
 
     if (fulfillNow) {
+      const voiceUrl = await persistOrderVoice({
+        orderId: order.id,
+        userId: session.user.id,
+        characterId: data.characterId,
+        audio: audioBuffer,
+      });
+      if (voiceUrl) order.voiceUrl = voiceUrl;
       await recordBondInteraction({
         userId: session.user.id,
         characterId: data.characterId,

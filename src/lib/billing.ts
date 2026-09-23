@@ -3,6 +3,7 @@ import { generateVoiceText, synthesizeWithVoiceClone } from "@/lib/ai/pipeline";
 import type { OrderType } from "@prisma/client";
 import { recordBondInteraction } from "@/lib/agent/relationship";
 import { recordRevenueShare } from "@/lib/revenue/ledger";
+import { persistOrderVoice } from "@/lib/order-voice";
 
 const PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -92,7 +93,7 @@ export async function fulfillCheckoutSession(session: {
     const voiceText =
       order.content ||
       (await generateVoiceText(order.character, order.type as OrderType, meta.customText));
-    await synthesizeWithVoiceClone(
+    const audio = await synthesizeWithVoiceClone(
       voiceText,
       order.character.voiceEmbeddingId,
       order.character.id,
@@ -106,6 +107,7 @@ export async function fulfillCheckoutSession(session: {
         stripeSessionId: session.id,
       },
     });
+    await persistOrderVoice({ orderId, userId, characterId: order.character.id, audio });
     await recordRevenueShare({
       characterId,
       kind: "ORDER",
