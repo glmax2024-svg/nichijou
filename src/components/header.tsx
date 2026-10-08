@@ -4,11 +4,15 @@ import { MIcon } from "@/components/ui/m-icon";
 import { LanguageSwitcher } from "@/components/i18n/language-switcher";
 import { getRequestLocale } from "@/i18n/server";
 import { getDictionary } from "@/i18n";
+import { getCoinBalance } from "@/lib/coins";
+import { countUnreadNotifications } from "@/lib/notifications";
 
 export async function Header() {
   const session = await auth();
   const locale = await getRequestLocale();
   const dict = getDictionary(locale);
+  const coins = session?.user ? await getCoinBalance(session.user.id) : null;
+  const unread = session?.user ? await countUnreadNotifications(session.user.id) : 0;
 
   return (
     <header className="sticky top-0 z-50 flex h-[60px] items-center justify-between border-b border-[rgba(120,72,54,0.07)] bg-[rgba(255,250,248,0.82)] px-4 backdrop-blur-[14px] sm:px-6">
@@ -28,11 +32,11 @@ export async function Header() {
 
       <div className="flex items-center gap-2.5">
         <LanguageSwitcher />
-        {session?.user && (
-          <div className="coin-badge hidden sm:flex">
+        {coins !== null && (
+          <Link href="/coins" className="coin-badge hidden sm:flex tabular-nums" aria-label="コイン履歴">
             <MIcon name="toll" className="text-[17px] text-[#e0a93a]" filled />
-            1,240
-          </div>
+            {coins.toLocaleString(locale)}
+          </Link>
         )}
         {session?.user && (
           <Link
@@ -49,9 +53,11 @@ export async function Header() {
           aria-label={dict.common.notifications}
         >
           <MIcon name="notifications" className="text-[20px]" />
-          <span className="absolute -right-0.5 -top-0.5 flex h-[15px] w-[15px] items-center justify-center rounded-full border-2 border-white bg-[#ef7488] text-[9px] font-bold text-white">
-            3
-          </span>
+          {unread > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex h-[15px] min-w-[15px] px-0.5 items-center justify-center rounded-full border-2 border-white bg-[#ef7488] text-[9px] font-bold text-white">
+              {unread > 9 ? "9+" : unread}
+            </span>
+          )}
         </Link>
         {session?.user ? (
           <Link

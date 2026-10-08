@@ -23,11 +23,11 @@ function parseSkillIds(raw?: string | string[] | null): string[] {
     .filter(Boolean);
 }
 
-export function getCharacterSkills(
-  slug: string,
-  opts?: { tags?: string; enabledIds?: string | string[] | null },
-): CharacterSkill[] {
-  const ctx: SkillMatchContext = { slug, tags: opts?.tags ?? "" };
+export function getCharacterSkills(opts?: {
+  tags?: string;
+  enabledIds?: string | string[] | null;
+}): CharacterSkill[] {
+  const ctx: SkillMatchContext = { tags: opts?.tags ?? "" };
   const enabled = parseSkillIds(opts?.enabledIds ?? null);
   const selected = enabled.length > 0 ? new Set(enabled) : null;
 
@@ -41,12 +41,8 @@ export function getCharacterSkills(
     .map((plugin) => plugin.definition);
 }
 
-export function skillsForCharacter(character: {
-  slug: string;
-  tags?: string | null;
-  skillIds?: string | null;
-}) {
-  return getCharacterSkills(character.slug, {
+export function skillsForCharacter(character: { tags?: string | null; skillIds?: string | null }) {
+  return getCharacterSkills({
     tags: character.tags ?? "",
     enabledIds: character.skillIds,
   });
@@ -61,19 +57,7 @@ export function canUseSkill(
   return opts.isLoggedIn;
 }
 
-export function getSkillReply(slug: string, skillId: string, characterName: string): string | null {
-  void slug;
-  return getSkillPlugin(skillId)?.cannedReply?.(characterName) ?? null;
-}
-
-export function getSkillReplyOrFallback(
-  slug: string,
-  skillId: string,
-  skillName: string,
-  characterName: string,
-): string {
-  return (
-    getSkillReply(slug, skillId, characterName) ??
-    `「${skillName}」を準備しています… もう少しだけ待ってね。`
-  );
+/** 使用技能时追加给模型的指令；纯界面型技能（塔罗、通话）没有 */
+export function getSkillPrompt(skillId: string): string | null {
+  return getSkillPlugin(skillId)?.prompt ?? null;
 }

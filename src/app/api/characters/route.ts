@@ -5,6 +5,8 @@ import { generatePostDraft } from "@/lib/ai/pipeline";
 import { resolveLoraAdapter } from "@/lib/ai/lora";
 import { slugify } from "@/lib/utils";
 import { z } from "zod";
+import { FailClosedError } from "@/lib/runtime";
+import { failClosedResponse } from "@/lib/security/rate-limit";
 import { enforceAdultUser } from "@/lib/security/age";
 import { enforceContentPolicy } from "@/lib/security/moderation";
 import { DEFAULT_BOUNDARIES } from "@/lib/agent/defaults";
@@ -206,6 +208,7 @@ export async function PATCH(request: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "入力内容を確認してください" }, { status: 400 });
     }
+    if (error instanceof FailClosedError) return failClosedResponse(error);
     return NextResponse.json({ error: "更新に失敗しました" }, { status: 500 });
   }
 }

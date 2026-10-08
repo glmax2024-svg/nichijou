@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { MIcon } from "@/components/ui/m-icon";
-import { ORDER_OPTIONS, formatYen } from "@/lib/stripe";
+import { ORDER_OPTIONS, formatCoins, purchaseErrorMessage } from "@/lib/pricing";
 import { loginPath } from "@/lib/login-path";
-import { redirectIfCheckout } from "@/lib/checkout-client";
 import { GiftGrid } from "@/components/gifts/gift-grid";
 import { GiftFx, type GiftFxPayload } from "@/components/gifts/gift-fx";
 import { useGiftCatalog, type PublicGift } from "@/components/gifts/use-gift-catalog";
@@ -49,9 +48,8 @@ export function CharacterActions({
         body: JSON.stringify({ characterId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      if (redirectIfCheckout(data)) return;
-      alert(data.demo ? "デモモード：サブスクが有効になりました！" : "加入しました！");
+      if (!res.ok) throw new Error(purchaseErrorMessage(data));
+      alert(data.renewed ? "推し登録を延長しました！" : "推し登録しました！");
       router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラー");
@@ -73,8 +71,8 @@ export function CharacterActions({
         body: JSON.stringify({ characterId, giftType: gift.slug }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      if (redirectIfCheckout(data)) return;
+      if (!res.ok) throw new Error(purchaseErrorMessage(data));
+      router.refresh();
       setFx({
         name: data.label ?? gift.name,
         emoji: data.emoji ?? gift.emoji,
@@ -98,15 +96,16 @@ export function CharacterActions({
     setLoading(type);
     try {
       const customText =
-        type === "CUSTOM" ? prompt("カスタムセリフを入力（50字以内）") ?? undefined : undefined;
+        type === "CUSTOM" ? prompt("カスタムセリフを入力（50字以内）")?.trim() || undefined : undefined;
+      if (type === "CUSTOM" && !customText) return;
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ characterId, type, customText }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      if (redirectIfCheckout(data)) return;
+      if (!res.ok) throw new Error(purchaseErrorMessage(data));
+      router.refresh();
       alert(`注文完了！\n\nボイステキスト:\n「${data.voiceText}」`);
     } catch (err) {
       alert(err instanceof Error ? err.message : "エラー");
@@ -130,7 +129,7 @@ export function CharacterActions({
             className="btn-primary flex items-center gap-1.5 rounded-2xl px-5 py-3 text-[15px] disabled:opacity-50"
           >
             <MIcon name="favorite" className="text-[20px] text-white" />
-            推す · {formatYen(subscriptionPrice)}/月
+            推す · {formatCoins(subscriptionPrice)}/30日
           </button>
         )}
         <button
@@ -150,8 +149,8 @@ export function CharacterActions({
         <div className="card p-5">
           <h3 className="font-display font-bold text-[#3a3330]">サブスクリプション</h3>
           <p className="mt-2 font-display text-2xl font-black text-[#ef7488]">
-            {formatYen(subscriptionPrice)}
-            <span className="text-sm font-normal text-[#b0a099]">/月</span>
+            {formatCoins(subscriptionPrice)}
+            <span className="text-sm font-normal text-[#b0a099]">/30日</span>
           </p>
           <p className="mt-1 text-sm text-[#8a7a72]">日常投稿の全閲覧 + チャット機能</p>
           <button
@@ -195,7 +194,7 @@ export function CharacterActions({
             >
               <div className="flex items-center justify-between">
                 <p className="font-bold text-[#3a3330]">{order.label}</p>
-                <p className="text-[#7d97e0]">{formatYen(order.amount)}</p>
+                <p className="text-[#7d97e0]">{formatCoins(order.amount)}</p>
               </div>
               <p className="mt-0.5 text-xs text-[#b0a099]">{order.description}</p>
             </button>

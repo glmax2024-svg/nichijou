@@ -10,7 +10,6 @@ import { SceneCard } from "@/components/ui/scene-card";
 import { MIcon } from "@/components/ui/m-icon";
 import type { FeedPostData } from "@/components/feed/feed-post";
 import type { PostCommentView } from "@/lib/post-comments";
-import { getSceneForKey } from "@/lib/scenes";
 import { resolveAnimePostImage } from "@/lib/character-media";
 
 type PostCommentModalProps = {
@@ -89,7 +88,6 @@ export function PostCommentModal({
 
   if (!open || !mounted) return null;
 
-  const scene = getSceneForKey(post.character.slug + post.id);
   const postImage = resolveAnimePostImage(post.character.slug, post.imageUrl);
 
   return createPortal(
@@ -157,7 +155,7 @@ export function PostCommentModal({
                 </p>
                 {postImage && (
                   <div className="mt-2.5">
-                    <SceneCard scene={scene} imageUrl={postImage} maxHeight={360} />
+                    <SceneCard imageUrl={postImage} maxHeight={360} />
                   </div>
                 )}
               </div>

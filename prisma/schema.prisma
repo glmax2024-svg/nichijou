@@ -74,6 +74,14 @@ model User {
   bonds             CharacterBond[]
   creatorShareBps   Int?
   earnings          CreatorEarning[]
+  inviteCodeId      String?
+  inviteCode        InviteCode?    @relation(fields: [inviteCodeId], references: [id], onDelete: SetNull)
+  mediaAssets       MediaAsset[]
+  /// 金币余额（目前没有充值，注册时发放初始金币）。只能通过 src/lib/coins.ts 变更，保证与流水一致
+  coinBalance       Int            @default(0)
+  /// 上次打开通知页的时间；晚于它的通知算未读
+  notificationsSeenAt DateTime?
+  coinTransactions  CoinTransaction[]
 }
 
 model Account {
@@ -125,6 +133,8 @@ model Character {
   worldRules        String         @default("") @db.Text
   brandVoice        String         @default("") @db.Text
   boundaries        String         @default("") @db.Text
+  /// 第一次聊天时角色说的第一句话（按人设与口吻撰写）；为空时使用通用开场白
+  greeting          String         @default("") @db.Text
   contentRating     String         @default("ALL")
   personaVersion    Int            @default(1)
   triggerWord       String?
@@ -153,7 +163,22 @@ model Character {
   personaRevisions  PersonaRevision[]
   bonds             CharacterBond[]
   creatorShareBps   Int?
+  /// 从外部 LoRA 目录导入时的角色基名（如 emilia_re_zero），导入脚本据此判断是否已导入
+  /// female | male | other —— 发现页按性别筛选
+  gender            String?
+  catalogLoraBase   String?
+  /// original = 原创；existing = 现有作品角色；null = 来源未确认。非原创角色上线前需要确认授权
+  ipOrigin          String?
+  ipSourceWork      String?
   earnings          CreatorEarning[]
+  mediaAssets       MediaAsset[]
+  /// 「いまの様子」：画师在工作室设置，过期后不再显示
+  statusEmoji       String?
+  statusText        String?
+  statusUpdatedAt   DateTime?
+  statusExpiresAt   DateTime?
+
+  @@index([catalogLoraBase])
 }
 
 model Post {
@@ -247,6 +272,8 @@ model Order {
   scheduledAt DateTime?
   content     String?   @db.Text
   voiceUrl    String?
+  voiceAssetId String?
+  voiceAsset   MediaAsset? @relation("OrderVoiceAsset", fields: [voiceAssetId], references: [id], onDelete: SetNull)
   stripeSessionId String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -260,6 +287,8 @@ model VoiceClip {
   label       String
   text        String
   audioUrl    String?
+  audioAssetId String?
+  audioAsset   MediaAsset? @relation("VoiceClipAudioAsset", fields: [audioAssetId], references: [id], onDelete: SetNull)
   createdAt   DateTime  @default(now())
   character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
 }
@@ -294,7 +323,34 @@ model LoraTrainingJob {
   startedAt   DateTime?
   finishedAt  DateTime?
   createdAt   DateTime   @default(now())
+  /// anima = 外部训练服务；空 = 旧的本地 worker / 模拟训练
+  provider           String?
+  /// 训练服务侧的任务 id
+  remoteJobId        String?
+  /// 训练服务侧的角色名（nj_<characterId>），同一角色多次训练共用，版本递增
+  remoteCharacter    String?
+  /// 提交时的幂等键（32 位十六进制），重试复用
+  requestKey         String?
+  /// 训练服务的原始状态（tagging / waiting_gpu / generating_previews ...）
+  remoteStatus       String?
+  revision           Int?
+  /// 固定版本的 LoRA id（nj_xxx__v2）。角色引用它而不是别名，重训不会悄悄改变已发布角色的长相
+  loraId             String?
+  readyForGeneration Boolean   @default(false)
+  step               Int?
+  totalSteps         Int?
+  queuePosition      Int?
+  errorCode          String?
+  imageCount         Int?
+  duplicatesRemoved  Int?
+  /// [{ angle, assetId, url }]，三个角度的预览图（已转存到自己的存储）
+  previews           Json?
+  trainingStartedAt  DateTime?
+  /// 画师把这个版本设为角色当前使用版本的时间
+  activatedAt        DateTime?
   character   Character  @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@index([remoteJobId])
 }
 
 /// LoRA 生成结果 — 画师用已训练 adapter 出图 / 出文案
@@ -304,6 +360,8 @@ model LoraGeneration {
   prompt         String    @db.Text
   negativePrompt String?   @db.Text
   imageUrl       String?
+  assetId        String?
+  asset          MediaAsset? @relation("LoraGenerationAsset", fields: [assetId], references: [id], onDelete: SetNull)
   textContent    String?   @db.Text
   weight         Float     @default(0.85)
   steps          Int       @default(28)
@@ -467,4 +525,166 @@ model GiftItem {
   updatedAt     DateTime @updatedAt
 
   @@index([active, sortOrder])
+}
+
+enum BetaApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// 内测申请。按邮箱去重：同一邮箱重复提交时更新待审核的那条。
+model BetaApplication {
+  id           String                @id @default(cuid())
+  email        String
+  nickname     String
+  /// FAN | CREATOR —— 申请人自报，审核时可以改
+  userType     UserRole              @default(FAN)
+  twitterUrl   String?
+  pixivUrl     String?
+  /// LINE | DISCORD | X_DM | OTHER
+  contactType  String
+  contactValue String
+  intro        String                @db.Text
+  status       BetaApplicationStatus @default(PENDING)
+  reviewNote   String?               @db.Text
+  reviewedAt   DateTime?
+  reviewedById String?
+  inviteCode   InviteCode?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+/// 邀请码。email 非空时只允许该邮箱注册；grantRole 决定注册后的身份。
+model InviteCode {
+  id            String           @id @default(cuid())
+  code          String           @unique
+  note          String?
+  grantRole     UserRole         @default(FAN)
+  email         String?
+  maxUses       Int              @default(1)
+  usedCount     Int              @default(0)
+  expiresAt     DateTime?
+  revokedAt     DateTime?
+  createdById   String?
+  applicationId String?          @unique
+  application   BetaApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  users         User[]
+  createdAt     DateTime         @default(now())
+
+  @@index([createdAt])
+}
+
+enum MediaKind {
+  IMAGE
+  AUDIO
+  VIDEO
+}
+
+enum MediaVisibility {
+  /// CDN 直出，可长期缓存（头像、封面、公开动态配图）
+  PUBLIC
+  /// 只存 key，访问要经过 /api/media/[id] 鉴权（付费语音、私聊里的图）
+  PRIVATE
+}
+
+/// 所有二进制产物的统一记录。业务表只引用 id，不再存完整 URL。
+model MediaAsset {
+  id          String          @id @default(cuid())
+  kind        MediaKind
+  visibility  MediaVisibility @default(PUBLIC)
+  /// 对象存储里的 key，不含域名 —— 换 CDN / 换域名不需要改数据
+  storageKey  String          @unique
+  contentType String
+  bytes       Int
+  width       Int?
+  height      Int?
+  durationMs  Int?
+  /// 内容哈希，用于去重与校验
+  sha256      String
+  /// anima | zetta | gateway | upload
+  source      String
+  /// prompt、lora、seed、模型版本等，便于复现和排查
+  sourceMeta  Json?
+  characterId String?
+  character   Character?      @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  /// 仅属于某个用户的内容才有值；删除用户数据时按此清理
+  userId      String?
+  user        User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime        @default(now())
+
+  loraGenerations LoraGeneration[] @relation("LoraGenerationAsset")
+  orders          Order[]          @relation("OrderVoiceAsset")
+  voiceClips      VoiceClip[]      @relation("VoiceClipAudioAsset")
+
+  @@index([userId, createdAt])
+  @@index([characterId, createdAt])
+  @@index([sha256])
+}
+
+/// 训练次数计费记录。不挂外键：删除角色后仍然计入当月额度，防止「删了再建」刷次数。
+model LoraTrainingCharge {
+  id          String   @id @default(cuid())
+  creatorId   String
+  characterId String
+  jobId       String   @unique
+  createdAt   DateTime @default(now())
+
+  @@index([creatorId, createdAt])
+}
+
+/// 远端清理失败时留下的待办（例如删除角色时训练任务还没结束），之后重试
+model PendingRemoteDeletion {
+  id          String   @id @default(cuid())
+  kind        String
+  remoteId    String   @unique
+  attempts    Int      @default(0)
+  lastError   String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+/// 金币流水。每一笔余额变化都对应一条记录，balanceAfter 便于对账。
+model CoinTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 正数为收入，负数为支出
+  delta        Int
+  balanceAfter Int
+  /// signup_bonus | gift | admin_adjust ...
+  reason       String
+  /// 关联对象（如礼物 id），用于幂等与追溯
+  refType      String?
+  refId        String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@unique([reason, refType, refId])
+}
+
+/// 运营活动（首页横幅）。published 且当前时间在 startsAt..endsAt 之间才展示
+model PlatformEvent {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String   @default("")
+  description String   @default("") @db.Text
+  badge       String   @default("期間限定イベント")
+  /// 横幅配色，见 src/lib/event-themes.ts
+  theme       String   @default("sakura")
+  imageUrl    String?
+  /// 站内路径（/characters/xxx）或 https 链接；为空时按钮进活动详情页
+  linkHref    String?
+  ctaLabel    String   @default("詳しく見る")
+  startsAt    DateTime
+  endsAt      DateTime
+  published   Boolean  @default(false)
+  sortOrder   Int      @default(100)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published, startsAt, endsAt])
 }

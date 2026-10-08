@@ -189,15 +189,27 @@ function buildOpenAiCall(params: GatewayChatParams): ProtocolCall {
     },
     parse: (json) => {
       const data = json as {
-        choices?: { message?: { content?: string | null } }[];
+        choices?: {
+          finish_reason?: string | null;
+          message?: { content?: string | null; reasoning_content?: string | null };
+        }[];
         usage?: {
           prompt_tokens?: number;
           completion_tokens?: number;
           prompt_tokens_details?: { cached_tokens?: number };
         };
       };
+      const choice = data.choices?.[0];
+      const text = choice?.message?.content?.trim() ?? "";
+      if (!text) {
+        // 常见原因：思考过程占满了 max_tokens，正文没来得及输出
+        console.warn(
+          `[gateway] ${params.model} empty content: finish=${choice?.finish_reason ?? "?"} ` +
+            `out=${data.usage?.completion_tokens ?? "?"} reasoning=${choice?.message?.reasoning_content?.length ?? 0}`,
+        );
+      }
       return {
-        text: data.choices?.[0]?.message?.content?.trim() ?? "",
+        text,
         usage: {
           inputTokens: num(data.usage?.prompt_tokens),
           outputTokens: num(data.usage?.completion_tokens),

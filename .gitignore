@@ -31,6 +31,7 @@
 !/public/uploads/posts/.gitkeep
 /public/uploads/generated/**
 !/public/uploads/generated/.gitkeep
+/public/uploads/characters/**
 
 # sqlite
 *.db
@@ -54,6 +55,10 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+!deploy/.env.production.example
+
+# 本地私有媒体（未配对象存储时的 demo 落盘目录）
+/.storage-private
 
 # vercel
 .vercel

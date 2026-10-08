@@ -391,7 +391,7 @@ export function LoraTrainWizard({
                   onChange={(e) =>
                     setTrigger(e.target.value.replace(/\s+/g, "_").toLowerCase())
                   }
-                  placeholder="aoi_nichijou"
+                  placeholder="my_character"
                   className="w-full bg-transparent text-sm text-[#3a3330] outline-none"
                 />
               </div>

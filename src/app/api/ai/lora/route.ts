@@ -5,6 +5,9 @@ import { enqueueLoraTraining, tickLoraJobProgress } from "@/lib/ai/pipeline";
 import { z } from "zod";
 import { FailClosedError } from "@/lib/runtime";
 import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
+import { isAnimaTrainingConfigured } from "@/lib/ai/providers/anima-train";
+import { isLegacyTrainingConfigured } from "@/lib/ai/lora";
+import { getTrainingQuota, startTraining, TrainingError } from "@/lib/ai/lora-training";
 
 const datasetImageSchema = z.object({
   url: z.string().min(1),
@@ -56,6 +59,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "権限がありません" }, { status: 403 });
     }
 
+    if (isAnimaTrainingConfigured()) {
+      const imageUrls = parsed.datasetImages?.map((img) => img.url) ?? parsed.referenceImageUrls ?? [];
+      const job = await startTraining({
+        characterId: parsed.characterId,
+        actor: { id: session.user.id, role: session.user.role },
+        imageUrls,
+      });
+      return NextResponse.json({ jobId: job.id, status: job.status, progress: job.progress, adapterId: null });
+    }
+
     const result = await enqueueLoraTraining({
       characterId: parsed.characterId,
       personality: character.personality,
@@ -76,6 +89,9 @@ export async function POST(request: Request) {
       message: "LoRA 训练已启动。完成后可用 adapter 生成角色内容。",
     });
   } catch (error) {
+    if (error instanceof TrainingError) {
+      return NextResponse.json({ error: error.message, code: error.code }, { status: error.status });
+    }
     if (error instanceof FailClosedError) {
       return failClosedResponse(error);
     }
@@ -117,5 +133,12 @@ export async function GET(request: Request) {
     take: 12,
   });
 
-  return NextResponse.json({ ...status, generations });
+  const quota = await getTrainingQuota({ id: session.user.id, role: session.user.role });
+  return NextResponse.json({
+    ...status,
+    generations,
+    quota,
+    // 前端据此决定显示 Anima 训练流程、旧的配方向导（外部训练服务），或「未配置」
+    trainingMode: isAnimaTrainingConfigured() ? "anima" : isLegacyTrainingConfigured() ? "legacy" : "none",
+  });
 }

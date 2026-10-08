@@ -5,7 +5,10 @@ import { MIcon } from "@/components/ui/m-icon";
 import { MobilePageHeader } from "@/components/mobile/mobile-page-header";
 import { SEARCH_TAGS, searchCharacters } from "@/lib/search";
 import { CharacterImage } from "@/components/ui/character-image";
-import { getSceneForKey, mockAffinity } from "@/lib/scenes";
+import { getCoverGradient } from "@/lib/scenes";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { affinityFromBond } from "@/lib/agent/relationship";
 
 type SearchPageProps = {
   basePath: "" | "/h5" | "/app";
@@ -21,6 +24,15 @@ export async function SearchPage({
   variant = "mobile",
 }: SearchPageProps) {
   const characters = await searchCharacters({ q, tag });
+  // 当前用户与结果中各角色的真实亲密度（没聊过的不显示等级）
+  const session = await auth();
+  const bonds = session?.user?.id
+    ? await prisma.characterBond.findMany({
+        where: { userId: session.user.id, characterId: { in: characters.map((c) => c.id) } },
+        select: { characterId: true, intimacy: true, stage: true },
+      })
+    : [];
+  const levelOf = new Map(bonds.map((b) => [b.characterId, affinityFromBond(b).level]));
   const searchPath = basePath ? `${basePath}/search` : "/search";
   const charHref = (slug: string) =>
     basePath ? `${basePath}/characters/${slug}` : `/characters/${slug}`;
@@ -86,14 +98,14 @@ export async function SearchPage({
       ) : variant === "web" ? (
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {characters.map((c, i) => (
-            <SearchCard key={c.id} character={c} href={charHref(c.slug)} index={i} />
+            <SearchCard key={c.id} character={c} href={charHref(c.slug)} index={i} level={levelOf.get(c.id)} />
           ))}
         </div>
       ) : (
         <ul className="mt-3 flex flex-col gap-3">
           {characters.map((c, i) => (
             <li key={c.id} className="animate-float-up" style={{ animationDelay: `${i * 0.05}s` }}>
-              <SearchCard character={c} href={charHref(c.slug)} index={i} />
+              <SearchCard character={c} href={charHref(c.slug)} index={i} level={levelOf.get(c.id)} />
             </li>
           ))}
         </ul>
@@ -138,6 +150,7 @@ function SearchCard({
   character: c,
   href,
   index,
+  level,
 }: {
   character: {
     slug: string;
@@ -149,18 +162,21 @@ function SearchCard({
   };
   href: string;
   index: number;
+  /** 亲密度等级，没聊过为 undefined */
+  level?: number;
 }) {
-  const scene = getSceneForKey(c.slug);
-  const affinity = mockAffinity(c.slug);
+  const cover = getCoverGradient(c.slug);
   const tags = parseTags(c.tags);
 
   return (
     <div className="overflow-hidden rounded-[22px] border border-[rgba(120,72,54,0.07)] bg-white shadow-[0_14px_34px_-24px_rgba(120,72,54,0.5)]">
-      <div className="relative h-[100px] overflow-hidden sm:h-[110px]" style={{ background: scene.scene }}>
+      <div className="relative h-[100px] overflow-hidden sm:h-[110px]" style={{ background: cover }}>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
-        <span className="absolute left-2.5 top-2.5 rounded-full bg-[rgba(58,51,48,0.72)] px-2 py-0.5 text-[10px] font-bold text-white">
-          Lv.{affinity.level}
-        </span>
+        {level !== undefined && (
+          <span className="absolute left-2.5 top-2.5 rounded-full bg-[rgba(58,51,48,0.72)] px-2 py-0.5 text-[10px] font-bold text-white">
+            Lv.{level}
+          </span>
+        )}
       </div>
       <div className="relative -mt-[28px] px-3.5 pb-3.5">
         <CharacterImage

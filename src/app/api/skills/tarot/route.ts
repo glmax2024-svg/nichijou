@@ -6,6 +6,8 @@ import { getChatAccess } from "@/lib/chat-quota";
 import { generateTarotReading, buildTarotUserMessage } from "@/lib/ai/tarot-reading";
 import { enforceAdultUser } from "@/lib/security/age";
 import { enforceContentPolicy } from "@/lib/security/moderation";
+import { FailClosedError } from "@/lib/runtime";
+import { failClosedResponse } from "@/lib/security/rate-limit";
 
 const cardSchema = z.object({
   id: z.string(),
@@ -106,6 +108,7 @@ export async function POST(request: Request) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "リクエストを確認してください" }, { status: 400 });
     }
+    if (error instanceof FailClosedError) return failClosedResponse(error);
     return NextResponse.json({ error: "占いに失敗しました" }, { status: 500 });
   }
 }

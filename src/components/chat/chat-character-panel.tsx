@@ -5,6 +5,7 @@ import { AffinityBar } from "@/components/ui/affinity-bar";
 import { CharacterLiveStatusPanel } from "@/components/character/character-live-status-panel";
 import { affinityFromBond, type BondSnapshot } from "@/lib/agent/bond-display";
 import type { DailyMediaItem, DayPeriod, LiveStatus } from "@/lib/character-live-status";
+import { formatCoins } from "@/lib/pricing";
 
 export type ChatCharacterPanelData = {
   slug: string;
@@ -21,7 +22,7 @@ export type ChatCharacterPanelData = {
   postCount: number;
   creatorName: string;
   creatorId?: string;
-  liveStatus: LiveStatus;
+  liveStatus: LiveStatus | null;
   dailyMedia: DailyMediaItem[];
   dayPeriod: DayPeriod;
   bond?: BondSnapshot | null;
@@ -39,12 +40,14 @@ export function ChatCharacterPanel({ character, basePath = "" }: ChatCharacterPa
 
   return (
     <div className="h-full overflow-y-auto bg-[#fbf4f1]">
-      <CharacterLiveStatusPanel
-        variant="sidebar"
-        liveStatus={character.liveStatus}
-        dailyMedia={character.dailyMedia}
-        dayPeriod={character.dayPeriod}
-      />
+      {character.liveStatus && (
+        <CharacterLiveStatusPanel
+          variant="sidebar"
+          liveStatus={character.liveStatus}
+          dailyMedia={character.dailyMedia}
+          dayPeriod={character.dayPeriod}
+        />
+      )}
 
       <div className="border-t border-[rgba(120,72,54,0.08)] bg-white px-4 pb-4 pt-3">
         <h2 className="font-display text-[20px] font-black leading-tight text-[#3a3330]">
@@ -83,7 +86,7 @@ export function ChatCharacterPanel({ character, basePath = "" }: ChatCharacterPa
             { label: "性格", value: character.personality.slice(0, 36) },
             { label: "推し", value: `${character.subscriberCount.toLocaleString()} 人` },
             { label: "投稿", value: `${character.postCount} 件` },
-            { label: "月額", value: `¥${character.subscriptionPrice.toLocaleString()}` },
+            { label: "推し登録", value: formatCoins(character.subscriptionPrice) },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-[12px] bg-[#fbf4f1] px-3 py-2">
               <dt className="text-[10px] text-[#b0a099]">{label}</dt>
@@ -99,7 +102,7 @@ export function ChatCharacterPanel({ character, basePath = "" }: ChatCharacterPa
               className="btn-primary flex w-full items-center justify-center gap-2 rounded-[14px] py-2.5 text-sm"
             >
               <MIcon name="favorite" className="text-[18px] text-white" />
-              月額 ¥{character.subscriptionPrice.toLocaleString()} で推す
+              {formatCoins(character.subscriptionPrice)} で推す
             </Link>
           )}
           <Link

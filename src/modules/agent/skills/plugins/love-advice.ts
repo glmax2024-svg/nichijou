@@ -8,7 +8,7 @@ export const loveAdvicePlugin: SkillPlugin = {
     description: "片思い・告白・距離感など、恋の悩みに優しく寄り添う",
     includedInSubscription: true,
   },
-  match: ({ slug, tags }) => slug === "aoi" || tags.includes("恋爱") || tags.includes("恋愛"),
-  cannedReply: () =>
-    "うん、聞くね。\n\n片思いって、相手の「好き」が分からないと不安になるよね。まずは、今一番気になってること教えて？\n\n…無理に答えなくて大丈夫。ゆっくり話そう。",
+  match: ({ tags }) => tags.includes("恋爱") || tags.includes("恋愛"),
+  prompt:
+    "ユーザーが「恋愛相談」スキルを使いました。あなたのキャラクターのまま、否定せずに話を聞き、まず今いちばん気になっていることを尋ねてください。",
 };

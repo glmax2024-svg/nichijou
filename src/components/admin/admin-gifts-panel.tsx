@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatYen } from "@/lib/stripe";
+import { formatCoins } from "@/lib/pricing";
 import { GiftIcon } from "@/components/gifts/gift-icon";
 
 type GiftRow = {
@@ -196,7 +196,7 @@ export function AdminGiftsPanel({ initial }: { initial: GiftRow[] }) {
               />
             </label>
             <label className="text-[12px] font-bold text-[#8a7a72]">
-              価格（円）
+              価格（コイン）
               <input
                 type="number"
                 min={100}
@@ -318,7 +318,7 @@ export function AdminGiftsPanel({ initial }: { initial: GiftRow[] }) {
                 <span className="text-[12px] font-normal text-[#b0a099]">{row.slug}</span>
               </div>
               <div className="text-[12px] text-[#8a7a72]">
-                {formatYen(row.amount)} · 親密度 +{row.intimacyDelta}
+                {formatCoins(row.amount)} · 親密度 +{row.intimacyDelta}
                 {row.animationUrl ? " · 演出あり" : ""}
                 {row.active ? "" : " · 非公開"}
               </div>

@@ -72,7 +72,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   // ── 1:1 聊天 ──
   "chat.subscribed": {
     tier: "balanced",
-    maxTokens: 320,
+    maxTokens: 600,
     temperature: 0.78,
     historyMessages: 20,
     memoryTopK: 8,
@@ -83,7 +83,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   },
   "chat.free": {
     tier: "fast",
-    maxTokens: 200,
+    maxTokens: 500,
     temperature: 0.8,
     historyMessages: 8,
     memoryTopK: 4,
@@ -94,7 +94,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   },
   "chat.creator": {
     tier: "fast",
-    maxTokens: 260,
+    maxTokens: 500,
     temperature: 0.8,
     historyMessages: 10,
     memoryTopK: 4,
@@ -131,7 +131,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   // ── 内容生产 ──
   "post.comment": {
     tier: "nano",
-    maxTokens: 100,
+    maxTokens: 300,
     temperature: 0.85,
     historyMessages: 0,
     memoryTopK: 0,
@@ -142,7 +142,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   },
   "post.draft": {
     tier: "balanced",
-    maxTokens: 220,
+    maxTokens: 500,
     temperature: 0.9,
     historyMessages: 0,
     memoryTopK: 0,
@@ -153,7 +153,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   },
   "lora.caption": {
     tier: "fast",
-    maxTokens: 200,
+    maxTokens: 400,
     temperature: 0.9,
     historyMessages: 0,
     memoryTopK: 0,
@@ -164,7 +164,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   },
   "order.voiceText": {
     tier: "flagship",
-    maxTokens: 160,
+    maxTokens: 300,
     temperature: 0.8,
     historyMessages: 0,
     memoryTopK: 0,
@@ -175,7 +175,7 @@ export const SCENE_CONFIG: Record<AiScene, SceneConfig> = {
   },
   "moderation": {
     tier: "nano",
-    maxTokens: 16,
+    maxTokens: 400,
     temperature: 0,
     historyMessages: 0,
     memoryTopK: 0,
@@ -257,7 +257,7 @@ export async function applyBudgetGuard(
   return {
     ...config,
     tier,
-    maxTokens: state === "hard" ? Math.min(config.maxTokens, 160) : config.maxTokens,
+    maxTokens: state === "hard" ? Math.min(config.maxTokens, 300) : config.maxTokens,
   };
 }
 
@@ -296,7 +296,8 @@ export async function runSceneChat(params: RunSceneParams): Promise<RunSceneResu
 
   const base = await applyBudgetGuard(scene, getSceneConfig(scene));
   const startIdx = TIER_CHAIN.indexOf(base.tier);
-  const chain = TIER_CHAIN.slice(startIdx);
+  // 先沿降档链往便宜的试；都失败再往上试一档（例如 nano 模型偶发不可用时，审核不至于直接跳过）
+  const chain = [...TIER_CHAIN.slice(startIdx), ...(startIdx > 0 ? [TIER_CHAIN[startIdx - 1]] : [])];
   const seen = new Set<string>();
 
   let lastErr: unknown;
@@ -309,25 +310,34 @@ export async function runSceneChat(params: RunSceneParams): Promise<RunSceneResu
     seen.add(model);
 
     try {
-      const result = await gatewayChat({
-        model,
-        messages,
-        maxTokens: params.maxTokens ?? base.maxTokens,
-        temperature: params.temperature ?? base.temperature,
-        cacheSystem: base.cacheSystem,
-      });
+      const call = () =>
+        gatewayChat({
+          model,
+          messages,
+          maxTokens: params.maxTokens ?? base.maxTokens,
+          temperature: params.temperature ?? base.temperature,
+          cacheSystem: base.cacheSystem,
+        });
+      const record = (r: Awaited<ReturnType<typeof call>>) =>
+        recordUsage({
+          scene,
+          tier,
+          model,
+          protocol: r.protocol,
+          usage: r.usage,
+          latencyMs: r.latencyMs,
+          ok: true,
+          userId,
+          characterId,
+        });
 
-      recordUsage({
-        scene,
-        tier,
-        model,
-        protocol: result.protocol,
-        usage: result.usage,
-        latencyMs: result.latencyMs,
-        ok: true,
-        userId,
-        characterId,
-      });
+      let result = await call();
+      record(result);
+      // 空回复多半是偶发（思考占满 token 等），同一模型再试一次，比直接降到便宜模型效果好
+      if (!result.text) {
+        result = await call();
+        record(result);
+      }
 
       if (!result.text) throw new Error("empty completion");
 

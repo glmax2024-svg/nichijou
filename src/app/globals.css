@@ -23,7 +23,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-noto-sans-jp);
-  --font-display: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+  --font-display: var(--font-zen-maru), var(--font-noto-sans-jp), sans-serif;
 }
 
 body {
@@ -33,7 +33,7 @@ body {
 }
 
 .font-display {
-  font-family: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+  font-family: var(--font-zen-maru), var(--font-noto-sans-jp), sans-serif;
 }
 
 .material-symbols-rounded {
@@ -42,6 +42,11 @@ body {
   font-style: normal;
   font-size: 24px;
   line-height: 1;
+  /* 字体到达前图标名是普通文字（如 "visibility_off"），固定成 1em 方块并裁掉，
+     避免撑开布局；配合 display=block，加载期间只是短暂空白 */
+  width: 1em;
+  height: 1em;
+  overflow: hidden;
   letter-spacing: normal;
   text-transform: none;
   display: inline-block;
@@ -54,7 +59,7 @@ body {
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-from), var(--primary-to));
   color: #fff;
-  font-family: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+  font-family: var(--font-zen-maru), var(--font-noto-sans-jp), sans-serif;
   font-weight: 700;
   box-shadow: 0 12px 22px -10px rgba(239, 116, 136, 0.8);
 }
@@ -62,7 +67,7 @@ body {
 .btn-dark {
   background: #3a3330;
   color: #fff;
-  font-family: "Zen Maru Gothic", var(--font-noto-sans-jp), sans-serif;
+  font-family: var(--font-zen-maru), var(--font-noto-sans-jp), sans-serif;
   font-weight: 700;
 }
 

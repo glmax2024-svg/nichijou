@@ -25,8 +25,12 @@ declare module "@auth/core/jwt" {
   interface JWT {
     id: string;
     role: UserRole;
+    /** 上次与数据库核对账号状态的时间（毫秒） */
+    checkedAt?: number;
   }
 }
+
+const ACCOUNT_RECHECK_MS = 5 * 60_000;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -72,6 +76,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (user) {
         token.id = user.id!;
         token.role = user.role;
+        token.checkedAt = Date.now();
+        return token;
+      }
+      // JWT 本身不会因为账号被删或降级而失效：定期回数据库核对一次
+      if (token.id && Date.now() - (token.checkedAt ?? 0) > ACCOUNT_RECHECK_MS) {
+        const fresh = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true } });
+        if (!fresh) return null; // 账号已删除 → 登录态作废
+        token.role = fresh.role;
+        token.checkedAt = Date.now();
       }
       return token;
     },

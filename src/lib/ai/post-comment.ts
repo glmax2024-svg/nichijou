@@ -9,16 +9,9 @@ type GeneratePostCommentReplyParams = {
   userName: string;
 };
 
-const FALLBACK_REPLIES = [
-  "ありがとう！嬉しいな",
-  "うんうん、見てくれてありがとう",
-  "えへへ、そう言ってもらえるとうれしい",
-  "コメントありがとう！また遊びに来てね",
-];
-
 export async function generatePostCommentReply(
   params: GeneratePostCommentReplyParams,
-): Promise<string> {
+): Promise<string | null> {
   const { character, postContent, userComment, userName } = params;
   const loraConfig = await resolveLoraAdapter(character);
 
@@ -41,12 +34,13 @@ SNSのコメント欄で、キャラクターとして1〜2文で自然に返信
       loraConfig,
       // 评论回复量最大、输出最短 —— 固定压在最便宜的档位
       scene: "post.comment",
+      languageSource: userComment,
     });
     if (reply.trim()) return reply.trim();
   } catch (err) {
     console.error("[post-comment]", err);
   }
 
-  const idx = userComment.length % FALLBACK_REPLIES.length;
-  return `${character.name}：${FALLBACK_REPLIES[idx]}`;
+  // 生成失败就不回复，不用固定文案冒充角色
+  return null;
 }

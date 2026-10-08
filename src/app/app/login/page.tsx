@@ -1,11 +1,21 @@
 import { Suspense } from "react";
 import { MobileLoginForm } from "@/components/mobile/mobile-login-form";
-import { isDemoMode } from "@/lib/runtime";
+import { isInviteOnly } from "@/lib/beta/invite";
 
-export default function AppLoginPage() {
+export default async function AppLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ invite?: string; tab?: string; mode?: string }>;
+}) {
+  const { invite, tab, mode } = await searchParams;
   return (
     <Suspense>
-      <MobileLoginForm defaultCallbackUrl="/app" legalBasePath="/app" showDemoHints={isDemoMode()} />
+      {/* 地址参数变化时重新挂载，避免沿用旧的邀请码 */}
+      <MobileLoginForm
+        key={[invite, tab, mode].join("|")}
+        defaultCallbackUrl="/app" legalBasePath="/app"
+        inviteOnly={isInviteOnly()}
+      />
     </Suspense>
   );
 }

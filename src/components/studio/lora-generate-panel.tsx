@@ -93,9 +93,6 @@ export function LoraGeneratePanel({
           weight: 0.85,
           steps: 28,
           batch: 1,
-          // Demo / official picks from the library can use studio demo generation
-          allowDemo: true,
-          coverUrl: coverUrl || preferredCoverUrl || undefined,
         }),
       });
       const data = await res.json();

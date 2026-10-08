@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { loginPath } from "@/lib/login-path";
-import { getNotifications } from "@/lib/notifications";
+import { getNotifications, markNotificationsSeen } from "@/lib/notifications";
 import { MobilePageHeader } from "@/components/mobile/mobile-page-header";
 import { MIcon } from "@/components/ui/m-icon";
 import { AmbientBg } from "@/components/ui/ambient-bg";
@@ -26,6 +26,8 @@ export async function NotificationsPage({
 
   const items = await getNotifications(session.user.id, basePath);
   const unread = items.filter((n) => n.unread).length;
+  // 这次看到的就算已读；本次页面仍然高亮它们，下次进来才会变成已读
+  await markNotificationsSeen(session.user.id);
 
   const list = (
     <ul className={variant === "web" ? "divide-y divide-[rgba(120,72,54,0.06)]" : ""}>

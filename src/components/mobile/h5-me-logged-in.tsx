@@ -4,9 +4,13 @@ import type { Session } from "next-auth";
 import { characterChatHref } from "@/lib/chat-inbox";
 import { CharacterAvatar } from "@/components/ui/character-avatar";
 import { MIcon } from "@/components/ui/m-icon";
+import { daysLeft, SUBSCRIPTION_EXPIRING_DAYS } from "@/lib/pricing";
+
+const ROLE_LABEL = { FAN: "ファン", CREATOR: "クリエイター", ADMIN: "運営" } as const;
 
 type Subscription = {
   id: string;
+  currentPeriodEnd: Date | null;
   character: {
     slug: string;
     name: string;
@@ -19,11 +23,13 @@ export function H5MeLoggedIn({
   subscriptions,
   basePath,
   giftCount = 0,
+  coinBalance,
 }: {
   session: Session;
   subscriptions: Subscription[];
   basePath: "" | "/h5" | "/app";
   giftCount?: number;
+  coinBalance: number;
 }) {
   return (
     <div className="min-h-full bg-[#fbf4f1] px-[18px] py-2 pb-4">
@@ -50,7 +56,7 @@ export function H5MeLoggedIn({
               {session.user.name ?? "ユーザー"}
             </div>
             <div className="text-xs text-[#8a7a72]">
-              @{session.user.email?.split("@")[0]} · ファン
+              @{session.user.email?.split("@")[0]} · {ROLE_LABEL[session.user.role as keyof typeof ROLE_LABEL] ?? "ファン"}
             </div>
           </div>
           <Link href={`${basePath}/settings`} aria-label="設定">
@@ -60,8 +66,8 @@ export function H5MeLoggedIn({
         <div className="mt-4 flex gap-2">
           {[
             { n: subscriptions.length, label: "推し中", color: "#ef7488" },
-            { n: giftCount || "—", label: "ギフト", color: "#7d97e0" },
-            { n: 86, label: "日連続", color: "#3a3330" },
+            { n: giftCount, label: "ギフト", color: "#7d97e0" },
+            { n: coinBalance.toLocaleString("ja-JP"), label: "コイン", color: "#b8862e" },
           ].map((s) => (
             <div key={s.label} className="flex-1 rounded-[14px] bg-white/70 py-2.5 text-center">
               <div className="font-display text-lg font-black" style={{ color: s.color }}>
@@ -80,7 +86,10 @@ export function H5MeLoggedIn({
         </Link>
       </div>
       <div className="flex flex-col gap-2.5">
-        {subscriptions.map((sub, i) => (
+        {subscriptions.map((sub) => {
+          const left = daysLeft(sub.currentPeriodEnd);
+          const expiring = left <= SUBSCRIPTION_EXPIRING_DAYS;
+          return (
           <div
             key={sub.id}
             className="flex items-center gap-2 rounded-[18px] border border-[rgba(120,72,54,0.06)] bg-white p-3"
@@ -98,12 +107,8 @@ export function H5MeLoggedIn({
               />
               <div className="min-w-0 flex-1 leading-snug">
                 <div className="font-display text-[14.5px] font-bold">{sub.character.name}</div>
-                <div
-                  className={`text-[11.5px] font-bold ${
-                    i === 0 ? "text-[#3fae76]" : "text-[#8a7a72]"
-                  }`}
-                >
-                  {i === 0 ? "残り 23 日 · 更新予定" : "残り 8 日"}
+                <div className={`text-[11.5px] font-bold ${expiring ? "text-[#d18a3a]" : "text-[#3fae76]"}`}>
+                  残り {left} 日{expiring ? " · まもなく期限" : ""}
                 </div>
               </div>
             </Link>
@@ -115,12 +120,14 @@ export function H5MeLoggedIn({
               <MIcon name="chat_bubble" className="text-[22px]" />
             </Link>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="mt-4 overflow-hidden rounded-[18px] border border-[rgba(120,72,54,0.06)] bg-white">
         <MeRow icon="redeem" iconColor="#ef7488" label="ギフト履歴" href={`${basePath}/gifts`} />
-        <MeRow icon="alarm" iconColor="#7d97e0" label="モーニングコール" href={`${basePath}/orders`} />
+        <MeRow icon="alarm" iconColor="#7d97e0" label="ボイスオーダー" href={`${basePath}/orders`} />
+        <MeRow icon="toll" iconColor="#e0a93a" label="コイン履歴" href={`${basePath}/coins`} />
         {(session.user.role === "CREATOR" || session.user.role === "ADMIN") && (
           <MeRow icon="palette" iconColor="#8b76d4" label="クリエイタースタジオ" href="/studio" />
         )}
@@ -128,6 +135,8 @@ export function H5MeLoggedIn({
           <>
             <MeRow icon="payments" iconColor="#ef7488" label="分成管理" href="/admin/revenue" />
             <MeRow icon="redeem" iconColor="#ef7488" label="ギフト図録" href="/admin/gifts" />
+            <MeRow icon="celebration" iconColor="#ef7488" label="イベント" href="/admin/events" />
+            <MeRow icon="how_to_reg" iconColor="#ef7488" label="β版テスター" href="/admin/beta" />
           </>
         )}
         <MeRow icon="help" iconColor="#8a7a72" label="ヘルプ" href={`${basePath}/help`} />

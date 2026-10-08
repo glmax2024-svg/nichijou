@@ -53,6 +53,9 @@ export default async function AdminRevenuePage() {
         <Link href="/admin/gifts" className="ml-4 text-[12px] font-bold text-[#ef7488] hover:underline">
           ギフト図録
         </Link>
+        <Link href="/admin/events" className="ml-4 text-[12px] font-bold text-[#ef7488] hover:underline">
+          イベント
+        </Link>
         <h1 className="mt-3 font-display text-2xl font-black text-[#3a3330]">分成とキャンペーン</h1>
         <p className="mt-1 text-sm text-[#8a7a72]">
           デフォルトは画师 {DEFAULT_CREATOR_SHARE_BPS / 100}% / プラットフォーム{" "}

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AmbientBg } from "@/components/ui/ambient-bg";
-import { formatYen } from "@/lib/stripe";
+import { formatCoins } from "@/lib/pricing";
 import { formatSharePercent } from "@/lib/revenue/split";
 import { resolveCreatorShare } from "@/lib/revenue/ledger";
 
@@ -64,9 +64,9 @@ export default async function StudioEarningsPage() {
 
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           {[
-            { label: "総売上", value: formatYen(totals._sum.grossAmount ?? 0) },
-            { label: "あなたの取り分", value: formatYen(totals._sum.creatorAmount ?? 0) },
-            { label: "手数料", value: formatYen(totals._sum.platformAmount ?? 0) },
+            { label: "総売上", value: formatCoins(totals._sum.grossAmount ?? 0) },
+            { label: "あなたの取り分", value: formatCoins(totals._sum.creatorAmount ?? 0) },
+            { label: "手数料", value: formatCoins(totals._sum.platformAmount ?? 0) },
           ].map((item) => (
             <div
               key={item.label}
@@ -105,9 +105,9 @@ export default async function StudioEarningsPage() {
                         <div className="text-[11px] text-[#ef7488]">{row.campaignName}</div>
                       ) : null}
                     </td>
-                    <td className="px-4 py-2.5">{formatYen(row.grossAmount)}</td>
+                    <td className="px-4 py-2.5">{formatCoins(row.grossAmount)}</td>
                     <td className="px-4 py-2.5 font-bold">
-                      {formatYen(row.creatorAmount)}
+                      {formatCoins(row.creatorAmount)}
                       <span className="ml-1 text-[11px] font-normal text-[#b0a099]">
                         {formatSharePercent(row.finalShareBps)}
                       </span>

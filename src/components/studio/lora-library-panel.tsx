@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { MIcon } from "@/components/ui/m-icon";
-import { DEMO_COMPLETED_LORAS, type DemoLoraCard } from "@/lib/lora-demos";
 import { useLocale } from "@/components/i18n/locale-provider";
 
 type TrainedJob = {
@@ -15,9 +14,19 @@ type TrainedJob = {
   baseModel: string | null;
   createdAt: string;
   datasetNote?: string | null;
+  revision?: number | null;
 };
 
-type LibraryItem = DemoLoraCard & {
+type LibraryItem = {
+  id: string;
+  name: string;
+  trigger: string;
+  baseModel: string;
+  coverUrl: string;
+  previewUrls: string[];
+  description: string;
+  sourceLabel: string;
+  version: string;
   adapterId?: string | null;
   isActive?: boolean;
 };
@@ -30,11 +39,6 @@ function parseCoverFromNote(note: string | null | undefined, fallback: string) {
   } catch {
     return fallback;
   }
-}
-
-function formatDownloads(n: number) {
-  if (n >= 1000) return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
-  return String(n);
 }
 
 export function LoraLibraryPanel({
@@ -53,7 +57,6 @@ export function LoraLibraryPanel({
   const [activeAdapter, setActiveAdapter] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [filter, setFilter] = useState<"all" | "official" | "demo">("all");
 
   const refresh = useCallback(async () => {
     const res = await fetch(`/api/ai/lora?characterId=${characterId}`);
@@ -69,40 +72,24 @@ export function LoraLibraryPanel({
 
   const fallbackCover = characterCover || "/characters/default-avatar.png";
 
-  const trainedItems: LibraryItem[] = useMemo(
+  const items: LibraryItem[] = useMemo(
     () =>
       jobs.map((job, index) => ({
         id: job.id,
         name: `${characterName} · Official LoRA`,
         trigger: job.triggerWord || `${characterName.toLowerCase()}_lora`,
-        baseModel: job.baseModel || "Pony",
-        kind: "image" as const,
+        baseModel: job.baseModel || "Anima",
         coverUrl: parseCoverFromNote(job.datasetNote, fallbackCover),
         previewUrls: [parseCoverFromNote(job.datasetNote, fallbackCover)],
         description: t(dict.studio.trainDesc, { name: characterName }),
-        source: "trained" as const,
         sourceLabel: dict.studio.trainedHere,
-        downloads: 0,
-        fileSizeMb: 64 + index * 8,
-        version: `v${index + 1}`,
-        trainedAtLabel: new Date(job.createdAt).toLocaleDateString("ja-JP"),
-        tags: ["official", "character", "ready"],
+        // 接口按创建时间倒序返回：最早的是 v1
+        version: job.revision ? `v${job.revision}` : `v${jobs.length - index}`,
         adapterId: job.adapterId,
         isActive: Boolean(job.adapterId && job.adapterId === activeAdapter),
       })),
     [jobs, characterName, fallbackCover, activeAdapter, dict, t],
   );
-
-  const items: LibraryItem[] = useMemo(
-    () => [...trainedItems, ...DEMO_COMPLETED_LORAS],
-    [trainedItems],
-  );
-
-  const visible = useMemo(() => {
-    if (filter === "official") return items.filter((i) => i.source === "trained");
-    if (filter === "demo") return items.filter((i) => i.source === "demo");
-    return items;
-  }, [items, filter]);
 
   const selected = items.find((item) => item.id === selectedId) ?? null;
 
@@ -128,38 +115,19 @@ export function LoraLibraryPanel({
           <h2 className="font-display text-2xl font-black tracking-tight text-[#3a3330]">
             My LoRAs
           </h2>
-          <p className="mt-1 text-[13px] text-[#8a7a72]">
-            {items.length} trained · {trainedItems.length} official · {DEMO_COMPLETED_LORAS.length}{" "}
-            demo
-          </p>
-        </div>
-        <div className="flex gap-1.5 rounded-full border border-[rgba(120,72,54,0.1)] bg-white p-1">
-          {(
-            [
-              { key: "all" as const, label: t(dict.studio.allCount, { n: items.length }) },
-              { key: "official" as const, label: `Official (${trainedItems.length})` },
-              { key: "demo" as const, label: `Demo (${DEMO_COMPLETED_LORAS.length})` },
-            ]
-          ).map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setFilter(f.key)}
-              className={`rounded-full px-3 py-1.5 text-[12px] font-bold transition ${
-                filter === f.key
-                  ? "bg-[#3a3330] text-white"
-                  : "text-[#8a7a72] hover:bg-[#fbf4f1]"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+          <p className="mt-1 text-[13px] text-[#8a7a72]">{t(dict.studio.allCount, { n: items.length })}</p>
         </div>
       </div>
 
+      {items.length === 0 && (
+        <p className="rounded-[20px] border border-dashed border-[rgba(120,72,54,0.15)] bg-white px-5 py-10 text-center text-[13px] text-[#8a7a72]">
+          {dict.studio.libraryEmpty}
+        </p>
+      )}
+
       {/* style grid — portrait cards */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
-        {visible.map((item) => {
+        {items.map((item) => {
           const on = selected?.id === item.id;
           return (
             <article
@@ -195,7 +163,7 @@ export function LoraLibraryPanel({
                     Ready
                   </span>
                   <span className="rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">
-                    {item.source === "demo" ? "Demo" : "Official"}
+                    Official
                   </span>
                 </div>
                 <span className="rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-bold text-white/90 backdrop-blur-sm">
@@ -212,11 +180,7 @@ export function LoraLibraryPanel({
                     <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-[#ffc3cc] backdrop-blur-sm">
                       #{item.trigger}
                     </span>
-                    <span className="text-[10px] text-white/65">
-                      {item.source === "demo"
-                        ? `${formatDownloads(item.downloads)} uses`
-                        : item.version}
-                    </span>
+                    <span className="text-[10px] text-white/65">{item.version}</span>
                   </div>
                 </div>
 
@@ -282,14 +246,6 @@ export function LoraLibraryPanel({
                   <span className="rounded-full bg-[#fbf4f1] px-2.5 py-1 text-[11px] font-bold text-[#8a7a72]">
                     {selected.version}
                   </span>
-                  <span className="rounded-full bg-[#fbf4f1] px-2.5 py-1 text-[11px] font-bold text-[#8a7a72]">
-                    {selected.fileSizeMb} MB
-                  </span>
-                  {selected.source === "demo" && (
-                    <span className="rounded-full bg-[#fbf4f1] px-2.5 py-1 text-[11px] font-bold text-[#8a7a72]">
-                      {formatDownloads(selected.downloads)} DL
-                    </span>
-                  )}
                 </div>
 
                 {selected.previewUrls.length > 1 && (

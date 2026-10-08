@@ -1,0 +1,18 @@
+[Unit]
+Description=Nichijou web (Next.js)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nichijou
+WorkingDirectory=/srv/nichijou
+EnvironmentFile=/srv/nichijou/.env
+Environment=NODE_ENV=production
+# 只监听本机，公网流量统一经过 Caddy（HTTPS）
+ExecStart=/usr/bin/npm run start -- -H 127.0.0.1 -p 3000
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

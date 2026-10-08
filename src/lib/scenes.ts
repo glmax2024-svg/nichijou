@@ -1,51 +1,18 @@
-export type ScenePreset = {
-  scene: string;
-  sceneAccent: string;
-  sceneLabel: string;
-};
-
-const SCENES: ScenePreset[] = [
-  {
-    scene: "linear-gradient(160deg,#ffd7a0,#ff9d7e 52%,#ec7ba6)",
-    sceneAccent: "#fff3cf",
-    sceneLabel: "☕ 夕暮れのカフェ",
-  },
-  {
-    scene: "linear-gradient(160deg,#5f5fb0,#9a7fc6 58%,#f0b48a)",
-    sceneAccent: "#ffe0a8",
-    sceneLabel: "📚 放課後の図書室",
-  },
-  {
-    scene: "linear-gradient(160deg,#ffd0e0,#ffe0ec 58%,#f2d9ff)",
-    sceneAccent: "#ffffff",
-    sceneLabel: "🌸 桜並木",
-  },
-  {
-    scene: "linear-gradient(160deg,#8ad2ff,#bfe8ff 58%,#dff7c0)",
-    sceneAccent: "#fff6c0",
-    sceneLabel: "🏃‍♀️ グラウンド",
-  },
-  {
-    scene: "linear-gradient(160deg,#8fd0ff,#c8e8ff 62%,#e6fff0)",
-    sceneAccent: "#fff6c8",
-    sceneLabel: "☀️ 青空",
-  },
-  {
-    scene: "linear-gradient(160deg,#2a2a5c,#4c3c7e 58%,#c86a9a)",
-    sceneAccent: "#ffe28a",
-    sceneLabel: "🌙 夜の街",
-  },
-  {
-    scene: "linear-gradient(160deg,#ffcf9a,#ffb090 55%,#e79ac0)",
-    sceneAccent: "#fff2cf",
-    sceneLabel: "📖 窓際の読書",
-  },
+/** 卡片顶部的装饰渐变，按 key 稳定取一个 */
+const COVER_GRADIENTS = [
+  "linear-gradient(160deg,#ffd7a0,#ff9d7e 52%,#ec7ba6)",
+  "linear-gradient(160deg,#5f5fb0,#9a7fc6 58%,#f0b48a)",
+  "linear-gradient(160deg,#ffd0e0,#ffe0ec 58%,#f2d9ff)",
+  "linear-gradient(160deg,#8ad2ff,#bfe8ff 58%,#dff7c0)",
+  "linear-gradient(160deg,#8fd0ff,#c8e8ff 62%,#e6fff0)",
+  "linear-gradient(160deg,#2a2a5c,#4c3c7e 58%,#c86a9a)",
+  "linear-gradient(160deg,#ffcf9a,#ffb090 55%,#e79ac0)",
 ];
 
-export function getSceneForKey(key: string): ScenePreset {
+export function getCoverGradient(key: string): string {
   let hash = 0;
-  for (let i = 0; i < key.length; i++) hash = (hash + key.charCodeAt(i) * (i + 1)) % SCENES.length;
-  return SCENES[hash]!;
+  for (let i = 0; i < key.length; i++) hash = (hash + key.charCodeAt(i) * (i + 1)) % COVER_GRADIENTS.length;
+  return COVER_GRADIENTS[hash]!;
 }
 
 export const RING_COLORS = [
@@ -71,29 +38,4 @@ export function getCharacterBadge(tag: string | null | undefined, slug: string) 
   ];
   const idx = slug.length % palettes.length;
   return { label, ...palettes[idx]! };
-}
-
-export function mockReactions(content: string) {
-  const sets = [
-    [
-      { emoji: "😳", n: 120 },
-      { emoji: "💕", n: 88 },
-    ],
-    [
-      { emoji: "☕", n: 210 },
-      { emoji: "👏", n: 96 },
-    ],
-    [
-      { emoji: "📚", n: 180 },
-      { emoji: "🥺", n: 143 },
-    ],
-  ];
-  return sets[content.length % sets.length]!;
-}
-
-export function mockAffinity(slug: string) {
-  const levels = [8, 6, 9, 5, 4, 7];
-  const percents = [72, 54, 90, 48, 35, 61];
-  const idx = slug.length % levels.length;
-  return { level: levels[idx]!, percent: percents[idx]! };
 }

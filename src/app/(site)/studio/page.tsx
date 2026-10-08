@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { AmbientBg } from "@/components/ui/ambient-bg";
 import { StudioDashboard } from "@/components/studio/studio-dashboard";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export default async function StudioPage() {
   const session = await auth();
@@ -29,7 +30,7 @@ export default async function StudioPage() {
         subscriptionPrice: true,
         published: true,
         loraStatus: true,
-        _count: { select: { posts: true, subscriptions: true } },
+        _count: { select: { posts: true, subscriptions: { where: activeSubscriptionWhere() } } },
       },
       orderBy: { createdAt: "desc" },
     }),
@@ -48,6 +49,12 @@ export default async function StudioPage() {
             </Link>
             <Link href="/admin/gifts" className="text-[12px] font-bold text-[#ef7488] hover:underline">
               ギフト図録
+            </Link>
+            <Link href="/admin/beta" className="text-[12px] font-bold text-[#ef7488] hover:underline">
+              β版テスター
+            </Link>
+            <Link href="/admin/events" className="text-[12px] font-bold text-[#ef7488] hover:underline">
+              イベント
             </Link>
           </div>
         )}

@@ -5,6 +5,7 @@ import { getCreatorPipeline, getCreatorValueProps } from "@/lib/studio-brand";
 import { MIcon } from "@/components/ui/m-icon";
 import { getRequestLocale } from "@/i18n/server";
 import { formatMessage, getDictionary } from "@/i18n";
+import { formatCoins } from "@/lib/pricing";
 
 type StudioCharacter = {
   id: string;
@@ -88,7 +89,7 @@ export async function StudioDashboard({ creator, characters }: StudioDashboardPr
               {[
                 { label: dict.studio.officialChars, value: String(characters.length) },
                 { label: dict.studio.totalFans, value: totalSubs.toLocaleString() },
-                { label: dict.studio.estMrr, value: `¥${mrr.toLocaleString()}` },
+                { label: dict.studio.estMrr, value: formatCoins(mrr) },
               ].map(({ label, value }) => (
                 <div
                   key={label}
@@ -246,7 +247,7 @@ export async function StudioDashboard({ creator, characters }: StudioDashboardPr
                   {[
                     { label: "投稿", value: `${featured._count.posts} 件` },
                     { label: "推し", value: featured._count.subscriptions.toLocaleString() },
-                    { label: "月额", value: `¥${featured.subscriptionPrice.toLocaleString()}` },
+                    { label: "推し登録", value: formatCoins(featured.subscriptionPrice) },
                     { label: "总投稿", value: `${totalPosts} 件` },
                   ].map(({ label, value }) => (
                     <div key={label} className="rounded-[12px] bg-[#fbf4f1] px-3 py-2.5">

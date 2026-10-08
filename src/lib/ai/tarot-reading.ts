@@ -2,21 +2,9 @@ import type { CharacterPersona } from "@/lib/ai/types";
 import type { DrawnTarotCard } from "@/lib/skills/tarot";
 import { formatDrawnCards } from "@/lib/skills/tarot";
 import { runSceneChat, pickTarotScene } from "@/lib/ai/model-router";
-
-function fallbackReading(character: CharacterPersona, cards: DrawnTarotCard[]): string {
-  const lines = cards.map((c) => {
-    const meaning = c.isReversed ? c.reversed : c.upright;
-    return `【${c.position} · ${c.name}${c.isReversed ? " · 逆位置" : ""}】\n${meaning}`;
-  });
-
-  return `${character.name}：牌が教えてくれるの…
-
-${lines.join("\n\n")}
-
-総合すると、今のあなたは「${cards[1]?.name ?? "現在"}」のエネルギーの真っ最中。過去の${cards[0]?.name ?? "経験"}が土台になって、未来の${cards[2]?.name ?? "可能性"}へ向かっているの。
-
-気になることがあれば、もう少し詳しく聞かせて？`;
-}
+import { FailClosedError } from "@/lib/runtime";
+import { NO_ACTION_RULE, REPLY_LANGUAGE_RULE, replyLanguageInstruction } from "@/lib/agent/prompt";
+import { stripStageDirections } from "@/lib/agent/stage-directions";
 
 export async function generateTarotReading(
   character: CharacterPersona,
@@ -46,11 +34,12 @@ ${character.identity ? `身分: ${character.identity}` : ""}
 ${character.boundaries ? `社交境界:\n${character.boundaries}` : ""}
 
 ## ルール
-- 日本語で、キャラクターの口調を保つ
+- ${REPLY_LANGUAGE_RULE}（質問がなければ日本語）
+- ${NO_ACTION_RULE}
 - 3枚のスプレッド（過去・現在・未来）を順に解釈し、最後に総合メッセージ
 - 各カードの正位置/逆位置の意味を反映する
 - 400字程度、親しみやすく、前向きに締める
-- 占い結果の後、ユーザーにひとつ質問を返す`,
+- 占い結果の後、ユーザーにひとつ質問を返す${replyLanguageInstruction(userQuestion ?? "")}`,
       },
       {
         role: "user",
@@ -61,12 +50,12 @@ ${spread}`,
       },
       ],
     });
-    if (result.text) return result.text;
+    if (result.text) return stripStageDirections(result.text);
   } catch (err) {
     console.error("[tarot] reading generation failed:", err);
   }
-
-  return fallbackReading(character, cards);
+  // 不再用固定文案冒充占卜结果：生成失败就如实报错
+  throw new FailClosedError("いまは占えません。少し時間をおいて試してください", "AI_GATEWAY_UNAVAILABLE");
 }
 
 export function buildTarotUserMessage(cards: DrawnTarotCard[], userQuestion?: string): string {

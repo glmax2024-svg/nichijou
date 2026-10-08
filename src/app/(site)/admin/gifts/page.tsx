@@ -30,6 +30,9 @@ export default async function AdminGiftsPage() {
           <Link href="/studio" className="hover:underline">
             スタジオ
           </Link>
+          <Link href="/admin/events" className="hover:underline">
+            イベント
+          </Link>
         </div>
         <h1 className="mt-3 font-display text-2xl font-black text-[#3a3330]">ギフト図録</h1>
         <p className="mt-1 text-sm text-[#8a7a72]">

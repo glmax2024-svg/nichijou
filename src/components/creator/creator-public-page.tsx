@@ -8,6 +8,8 @@ import { AmbientBg } from "@/components/ui/ambient-bg";
 import { MIcon } from "@/components/ui/m-icon";
 import { getRequestLocale } from "@/i18n/server";
 import { getDictionary } from "@/i18n";
+import { formatCoins } from "@/lib/pricing";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 type CreatorPublicPageProps = {
   creatorId: string;
@@ -33,7 +35,7 @@ export async function CreatorPublicPage({ creatorId }: CreatorPublicPageProps) {
           avatarUrl: true,
           coverUrl: true,
           subscriptionPrice: true,
-          _count: { select: { subscriptions: true, posts: true } },
+          _count: { select: { subscriptions: { where: activeSubscriptionWhere() }, posts: true } },
         },
       },
     },
@@ -138,7 +140,7 @@ export async function CreatorPublicPage({ creatorId }: CreatorPublicPageProps) {
                 <div className="flex items-center justify-between border-t border-[rgba(120,72,54,0.06)] px-4 py-3 text-[11px] font-bold text-[#8a7a72]">
                   <span>{c._count.posts} 投稿</span>
                   <span>{c._count.subscriptions.toLocaleString()} 推し</span>
-                  <span className="text-[#ef7488]">¥{c.subscriptionPrice.toLocaleString()}/月</span>
+                  <span className="text-[#ef7488]">{formatCoins(c.subscriptionPrice)}/30日</span>
                 </div>
               </Link>
             ))}

@@ -1,10 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { deleteMemosRemote } from "@/lib/ai/memos-plugin";
+import { deleteUserMediaAssets } from "@/lib/media";
 
 export type EraseCompanionResult = {
   memories: number;
   messages: number;
   bonds: number;
+  mediaAssets: number;
   remoteDeleted: boolean;
 };
 
@@ -21,6 +23,14 @@ export async function eraseCompanionData(
     prisma.characterBond.deleteMany({ where }),
   ]);
 
+  // 存储里的私有文件也要一起清，否则删除不彻底（订单语音随订单保留）
+  let mediaAssets = 0;
+  try {
+    mediaAssets = await deleteUserMediaAssets(userId, characterId);
+  } catch (err) {
+    console.error("[privacy] media delete failed:", err);
+  }
+
   let remoteDeleted = false;
   try {
     remoteDeleted = await deleteMemosRemote(userId, characterId);
@@ -32,6 +42,7 @@ export async function eraseCompanionData(
     memories: memories.count,
     messages: messages.count,
     bonds: bonds.count,
+    mediaAssets,
     remoteDeleted,
   };
 }

@@ -2,14 +2,16 @@
  * LoRA 角色形象 / 人设适配层
  *
  * 画师上传参考图 → 训练独立 adapter → 用 trigger + prompt 生成内容。
- * 未配置外部训练服务时，走本地进度模拟（适合演示）。
+ * 训练走 Anima（lora-training.ts）或通用外部训练服务（LORA_TRAINING_API_URL）；都未配置时直接报错。
  */
 
 import { prisma } from "@/lib/prisma";
-import { FailClosedError, isDemoMode } from "@/lib/runtime";
-import { putUpload } from "@/lib/storage";
+import { FailClosedError } from "@/lib/runtime";
+import { storeMediaAsset, resolveMediaUrl } from "@/lib/media";
 import { gatewayImage } from "./gateway";
 import { IMAGE_MODEL } from "./model-router";
+import { generateAnimaImages, isAnimaConfigured, parseAnimaAdapter } from "./providers/anima";
+import { syncTrainingJob } from "./lora-training";
 import type {
   CharacterPersona,
   LoraAdapterConfig,
@@ -25,6 +27,10 @@ const LORA_INFERENCE_URL = process.env.LORA_INFERENCE_API_URL;
 const LORA_INFERENCE_API_KEY = process.env.LORA_INFERENCE_API_KEY;
 
 const DEFAULT_WEIGHT = 0.85;
+
+export function isLegacyTrainingConfigured(): boolean {
+  return Boolean(LORA_API_URL && LORA_API_KEY);
+}
 
 export type DatasetImage = {
   url: string;
@@ -107,19 +113,13 @@ export async function enqueueLoraTraining(input: LoraTrainInput): Promise<LoraTr
       return await trainLoraRemote(job.id, input, images);
     } catch (err) {
       console.error("[lora] remote training failed:", err);
-      if (!isDemoMode()) {
-        await markJobFailed(job.id, characterId, err);
-        throw err instanceof Error ? err : new Error("LoRA 训练服务调用失败");
-      }
+      await markJobFailed(job.id, characterId, err);
+      throw err instanceof Error ? err : new Error("LoRA 训练服务调用失败");
     }
   }
 
-  if (!isDemoMode()) {
-    await markJobFailed(job.id, characterId, new Error("LoRA training API missing"));
-    throw new FailClosedError("LoRA 训练服务未配置", "LORA_TRAINING_UNAVAILABLE");
-  }
-
-  return startSimulatedTraining(job.id, characterId, triggerWord);
+  await markJobFailed(job.id, characterId, new Error("LoRA training API missing"));
+  throw new FailClosedError("LoRA 训练服务未配置", "LORA_TRAINING_UNAVAILABLE");
 }
 
 async function markJobFailed(jobId: string, characterId: string, err: unknown) {
@@ -193,36 +193,6 @@ async function trainLoraRemote(
 }
 
 /** Demo: enter TRAINING; progress advanced by polling. */
-async function startSimulatedTraining(
-  jobId: string,
-  characterId: string,
-  triggerWord?: string,
-): Promise<LoraTrainResult> {
-  const adapterId = `lora_${characterId.slice(0, 8)}_${Date.now().toString(36)}`;
-
-  await prisma.loraTrainingJob.update({
-    where: { id: jobId },
-    data: {
-      status: "TRAINING",
-      progress: 6,
-      adapterId,
-      triggerWord: triggerWord || null,
-      startedAt: new Date(),
-    },
-  });
-
-  await prisma.character.update({
-    where: { id: characterId },
-    data: {
-      loraStatus: "TRAINING",
-      loraAdapterId: adapterId,
-      triggerWord: triggerWord || undefined,
-    },
-  });
-
-  return { jobId, status: "TRAINING", adapterId, progress: 6 };
-}
-
 /**
  * 画师页轮询时推进模拟进度；远程任务仅原样返回。
  */
@@ -253,7 +223,9 @@ export async function tickLoraJobProgress(characterId: string) {
 
   let activeJob = latest;
 
-  if (
+  if (latest.provider === "anima") {
+    activeJob = await syncTrainingJob(latest);
+  } else if (
     LORA_API_URL &&
     LORA_API_KEY &&
     (latest.status === "TRAINING" || latest.status === "QUEUED")
@@ -262,50 +234,6 @@ export async function tickLoraJobProgress(characterId: string) {
       activeJob = (await syncRemoteLoraJob(characterId, latest)) ?? latest;
     } catch (err) {
       console.error("[lora] worker job sync failed:", err);
-    }
-  } else if (
-    isDemoMode() &&
-    !LORA_API_URL &&
-    (latest.status === "TRAINING" || latest.status === "QUEUED") &&
-    latest.progress < 100
-  ) {
-    const bump = latest.progress < 20 ? 14 : latest.progress < 60 ? 18 : latest.progress < 90 ? 12 : 10;
-    const nextProgress = Math.min(100, latest.progress + bump);
-
-    if (nextProgress >= 100) {
-      activeJob = await prisma.loraTrainingJob.update({
-        where: { id: latest.id },
-        data: {
-          status: "READY",
-          progress: 100,
-          finishedAt: new Date(),
-        },
-      });
-
-      await prisma.character.update({
-        where: { id: characterId },
-        data: {
-          loraStatus: "READY",
-          loraAdapterId: latest.adapterId,
-          loraVersion: { increment: 1 },
-          triggerWord: latest.triggerWord ?? undefined,
-        },
-      });
-    } else {
-      activeJob = await prisma.loraTrainingJob.update({
-        where: { id: latest.id },
-        data: {
-          status: "TRAINING",
-          progress: nextProgress,
-        },
-      });
-
-      if (character.loraStatus !== "TRAINING") {
-        await prisma.character.update({
-          where: { id: characterId },
-          data: { loraStatus: "TRAINING" },
-        });
-      }
     }
   }
 
@@ -391,26 +319,6 @@ async function syncRemoteLoraJob(
 
   return updated;
 }
-
-function parseDatasetImages(datasetNote: string | null): DatasetImage[] {
-  if (!datasetNote) return [];
-  try {
-    const data = JSON.parse(datasetNote) as {
-      images?: DatasetImage[];
-      referenceImageUrls?: string[];
-    };
-    if (Array.isArray(data.images) && data.images.length > 0) {
-      return data.images.filter((img) => img?.url);
-    }
-    if (Array.isArray(data.referenceImageUrls)) {
-      return data.referenceImageUrls.map((url) => ({ url, caption: "" }));
-    }
-  } catch {
-    /* ignore */
-  }
-  return [];
-}
-
 /**
  * 用已训练 LoRA 生成内容：图（优先推理 API / 否则复用训练集）+ SNS 文案。
  */
@@ -446,11 +354,7 @@ export async function generateWithLora(
     throw new Error("角色不存在");
   }
 
-  const allowDemo = isDemoMode() && Boolean(input.allowDemo);
-  if (
-    (!character.loraAdapterId || character.loraStatus !== "READY") &&
-    !allowDemo
-  ) {
+  if (!character.loraAdapterId || character.loraStatus !== "READY") {
     throw new Error("请先完成 LoRA 训练后再生成");
   }
 
@@ -458,7 +362,6 @@ export async function generateWithLora(
     character.loraAdapterId ?? `demo_${character.id}_${Date.now().toString(36)}`;
 
   const latestJob = character.loraJobs[0];
-  const dataset = parseDatasetImages(latestJob?.datasetNote ?? null);
   const trigger = latestJob?.triggerWord?.trim() || character.triggerWord?.trim();
   const weight = input.weight ?? DEFAULT_WEIGHT;
   const steps = input.steps ?? 28;
@@ -476,7 +379,68 @@ export async function generateWithLora(
     weight,
   );
 
-  if (LORA_INFERENCE_URL && character.loraAdapterId) {
+  // 0. Anima 生图服务（角色通过 loraAdapterId = "anima:<lora>" 绑定）
+  const animaLora = parseAnimaAdapter(character.loraAdapterId);
+  if (animaLora && isAnimaConfigured()) {
+    try {
+      const images = await generateAnimaImages({
+        lora: animaLora,
+        prompt: fullPrompt,
+        negativePrompt: input.negativePrompt,
+        strength: weight,
+        steps,
+        batch,
+      });
+      const results: LoraGenerateResult["items"] = [];
+      for (let i = 0; i < images.length; i++) {
+        // 远程图片在公网上，必须转存到自己的存储再给前端
+        const asset = await storeMediaAsset({
+          kind: "IMAGE",
+          visibility: "PUBLIC",
+          body: images[i].body,
+          contentType: images[i].contentType,
+          source: "anima",
+          characterId: character.id,
+          sourceMeta: {
+            lora: animaLora,
+            prompt: fullPrompt,
+            negativePrompt: input.negativePrompt ?? null,
+            weight,
+            steps,
+            seed: images[i].seed,
+            remoteId: images[i].remoteId,
+          },
+        });
+        const row = await prisma.loraGeneration.create({
+          data: {
+            characterId: character.id,
+            prompt: fullPrompt,
+            negativePrompt: input.negativePrompt ?? null,
+            assetId: asset.id,
+            imageUrl: resolveMediaUrl(asset),
+            textContent: i === 0 ? textContent : null,
+            weight,
+            steps,
+            status: "READY",
+          },
+        });
+        results.push({
+          id: row.id,
+          imageUrl: row.imageUrl,
+          textContent: row.textContent,
+          prompt: row.prompt,
+        });
+      }
+      return { items: results, adapterId: character.loraAdapterId!, triggerWord: trigger ?? null };
+    } catch (err) {
+      console.error("[lora] anima generate failed:", err);
+      if (!IMAGE_MODEL) {
+        throw err instanceof Error ? err : new Error("生图服务失败");
+      }
+    }
+  }
+
+  if (LORA_INFERENCE_URL && character.loraAdapterId && !animaLora) {
     try {
       const remote = await generateImageRemote({
         characterId: character.id,
@@ -511,7 +475,7 @@ export async function generateWithLora(
       return { items: results, adapterId: character.loraAdapterId, triggerWord: trigger ?? null };
     } catch (err) {
       console.error("[lora] remote generate failed:", err);
-      if (!isDemoMode() && !IMAGE_MODEL) {
+      if (!IMAGE_MODEL) {
         throw err instanceof Error ? err : new Error("LoRA 推理失败");
       }
     }
@@ -529,13 +493,17 @@ export async function generateWithLora(
 
       const results: LoraGenerateResult["items"] = [];
       for (let i = 0; i < remote.images.length; i++) {
-        const imageUrl = await persistGeneratedImage(character.id, remote.images[i]);
+        const asset = await persistGeneratedImage(character.id, remote.images[i], {
+          prompt: fullPrompt,
+          model: IMAGE_MODEL,
+        });
         const row = await prisma.loraGeneration.create({
           data: {
             characterId: character.id,
             prompt: fullPrompt,
             negativePrompt: input.negativePrompt ?? null,
-            imageUrl,
+            assetId: asset?.id ?? null,
+            imageUrl: asset ? resolveMediaUrl(asset) : remote.images[i],
             textContent: i === 0 ? textContent : null,
             weight,
             steps,
@@ -554,56 +522,11 @@ export async function generateWithLora(
       }
     } catch (err) {
       console.error("[lora] gateway image fallback failed:", err);
-      if (!isDemoMode()) {
-        throw err instanceof Error ? err : new Error("生图服务失败");
-      }
+      throw err instanceof Error ? err : new Error("生图服务失败");
     }
   }
 
-  if (!isDemoMode()) {
-    throw new FailClosedError("生图服务未配置", "IMAGE_UNAVAILABLE");
-  }
-
-  const pool =
-    [
-      ...(input.coverUrl ? [input.coverUrl] : []),
-      ...dataset.map((d) => d.url),
-      character.coverUrl,
-      character.avatarUrl,
-    ].filter(Boolean) as string[];
-
-  if (pool.length === 0) {
-    throw new Error("没有可用于生成的参考图");
-  }
-
-  const results: LoraGenerateResult["items"] = [];
-  for (let i = 0; i < batch; i++) {
-    const imageUrl = pool[(Date.now() + i) % pool.length];
-    const row = await prisma.loraGeneration.create({
-      data: {
-        characterId: character.id,
-        prompt: fullPrompt,
-        negativePrompt: input.negativePrompt ?? null,
-        imageUrl,
-        textContent: i === 0 ? textContent : textContent,
-        weight,
-        steps,
-        status: "READY",
-      },
-    });
-    results.push({
-      id: row.id,
-      imageUrl: row.imageUrl,
-      textContent: row.textContent,
-      prompt: row.prompt,
-    });
-  }
-
-  return {
-    items: results,
-    adapterId,
-    triggerWord: trigger ?? null,
-  };
+  throw new FailClosedError("生图服务未配置", "IMAGE_UNAVAILABLE");
 }
 
 async function generateImageRemote(params: {
@@ -670,11 +593,11 @@ async function composeGenerationText(
       "lora.caption",
     );
     if (draft) return draft;
-  } catch {
-    /* fall through */
+  } catch (err) {
+    console.error("[lora] caption generation failed:", err);
   }
-
-  return `${character.name}の今日：${prompt.slice(0, 48)}… この感じ、ちゃんと残しておきたくて。`;
+  // 配文只是附带的：生成失败就留空，不编一句假的，也不影响出图
+  return "";
 }
 
 /**
@@ -701,19 +624,24 @@ function buildGatewayImagePrompt(
 }
 
 /** 远程 URL 原样返回；base64 data URI 写入存储层。 */
-async function persistGeneratedImage(characterId: string, image: string): Promise<string> {
-  if (!image.startsWith("data:")) return image;
+/** 网关返回的是 data URI；转存并登记。非 data URI（外链）返回 null，由调用方沿用原地址。 */
+async function persistGeneratedImage(
+  characterId: string,
+  image: string,
+  meta: { prompt: string; model?: string },
+) {
+  const match = image.startsWith("data:")
+    ? image.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.*)$/)
+    : null;
+  if (!match) return null;
 
-  const match = image.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.*)$/);
-  if (!match) return image;
-
-  const ext = match[1] === "jpeg" ? "jpg" : match[1];
-  const stored = await putUpload({
-    kind: "generated",
-    characterId,
+  return storeMediaAsset({
+    kind: "IMAGE",
+    visibility: "PUBLIC",
     body: Buffer.from(match[2], "base64"),
     contentType: `image/${match[1] === "jpg" ? "jpeg" : match[1]}`,
-    ext,
+    source: "gateway",
+    characterId,
+    sourceMeta: { prompt: meta.prompt, model: meta.model ?? null },
   });
-  return stored.url;
 }

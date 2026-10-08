@@ -68,14 +68,16 @@ export async function POST(request: Request, context: RouteContext) {
       userName: session.user.name ?? "ファン",
     });
 
-    const characterComment = await prisma.postComment.create({
-      data: {
-        postId,
-        authorType: "character",
-        content: replyText,
-        isAiGenerated: true,
-      },
-    });
+    const characterComment = replyText
+      ? await prisma.postComment.create({
+          data: {
+            postId,
+            authorType: "character",
+            content: replyText,
+            isAiGenerated: true,
+          },
+        })
+      : null;
 
     return NextResponse.json({
       comments: [
@@ -87,14 +89,18 @@ export async function POST(request: Request, context: RouteContext) {
           createdAt: userComment.createdAt,
           user: userComment.user,
         },
-        {
-          id: characterComment.id,
-          authorType: "character" as const,
-          content: characterComment.content,
-          isAiGenerated: true,
-          createdAt: characterComment.createdAt,
-          user: null,
-        },
+        ...(characterComment
+          ? [
+              {
+                id: characterComment.id,
+                authorType: "character" as const,
+                content: characterComment.content,
+                isAiGenerated: true,
+                createdAt: characterComment.createdAt,
+                user: null,
+              },
+            ]
+          : []),
       ],
     });
   } catch (error) {

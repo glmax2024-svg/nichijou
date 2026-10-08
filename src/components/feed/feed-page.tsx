@@ -1,22 +1,24 @@
 import Link from "next/link";
-import Image from "next/image";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { MIcon } from "@/components/ui/m-icon";
 import { AmbientBg } from "@/components/ui/ambient-bg";
-import { EventBanner } from "@/components/ui/event-banner";
 import { StoryRail } from "./story-rail";
 import {
   InteractiveFeedPost,
   type InteractiveFeedPostData,
 } from "./interactive-feed-post";
-import { getFeedPosts, getStoryCharacters, getTrendingCharacters } from "@/lib/feed";
+import { getFeedPosts, getStoryCharacters, getTrendingCharacters, startOfTodayJst } from "@/lib/feed";
 import { getSubscribedFeedPosts } from "@/lib/search";
-import { mockAffinity, RANK_COLORS } from "@/lib/scenes";
+import { RANK_COLORS } from "@/lib/scenes";
+import { affinityFromBond } from "@/lib/agent/relationship";
 import { CharacterImage } from "@/components/ui/character-image";
 import { getRequestLocale } from "@/i18n/server";
 import { formatMessage, getDictionary } from "@/i18n";
 import type { Dictionary } from "@/i18n/dictionaries/ja";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
+import { listLiveEvents } from "@/lib/events";
+import { EventBanners } from "@/components/events/event-banner";
 
 type FeedPageProps = {
   basePath?: string;
@@ -30,12 +32,13 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
   const dict = getDictionary(locale);
   const isFollowing = feedTab === "following";
 
-  const [posts, storyCharacters, trending] = await Promise.all([
+  const [posts, storyCharacters, trending, events] = await Promise.all([
     isFollowing && session?.user
       ? getSubscribedFeedPosts(session.user.id)
       : getFeedPosts(),
     getStoryCharacters(),
     getTrendingCharacters(),
+    listLiveEvents(),
   ]);
 
   const postIds = posts.map((p) => p.id);
@@ -70,17 +73,30 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
 
   const subCount = session?.user
     ? await prisma.subscription.count({
-        where: { userId: session.user.id, status: "ACTIVE" },
+        where: { userId: session.user.id, ...activeSubscriptionWhere() },
       })
     : 0;
 
-  const topOshi = trending[0];
+  // 你最亲密的角色（真实关系数据）；没聊过天则不显示
+  const myBond = session?.user
+    ? await prisma.characterBond.findFirst({
+        where: { userId: session.user.id, character: { published: true } },
+        orderBy: { intimacy: "desc" },
+        select: { intimacy: true, stage: true, character: { select: { slug: true, name: true, avatarUrl: true } } },
+      })
+    : null;
+  const topOshi = myBond?.character ?? null;
+
+  // 今天（日本时间）发布的动态数
+  const todayStart = startOfTodayJst();
+  const todayCount = feedPosts.filter((p) => p.publishedAt >= todayStart).length;
 
   if (variant === "mobile") {
     return (
       <div className="min-h-full">
         <div className="border-b border-[rgba(120,72,54,0.06)] bg-white">
           <StoryRail characters={storyCharacters} basePath={basePath} variant="mobile" />
+          <EventBanners events={events} basePath={basePath} compact />
         </div>
         <div className="bg-[#fbf4f1]">
           {feedPosts.length === 0 ? (
@@ -107,7 +123,7 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
   }
 
   const userName = session?.user?.name?.split(" ")[0] ?? dict.common.guest;
-  const topAffinity = topOshi ? mockAffinity(topOshi.slug) : { level: 8, percent: 72 };
+  const topAffinity = myBond ? affinityFromBond(myBond) : null;
 
   return (
     <div className="relative min-h-screen">
@@ -132,26 +148,6 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
             <MIcon name="edit" className="text-[19px] text-white" />
             {dict.nav.postDaily}
           </Link>
-          {topOshi && (
-            <div
-              className="mt-3.5 rounded-2xl border border-[rgba(239,116,136,0.12)] p-3.5"
-              style={{ background: "linear-gradient(160deg,#fff,#fff4f6)" }}
-            >
-              <div className="text-[11px] font-bold text-[#b0a099]">{dict.feed.todayMood}</div>
-              <Link
-                href={`/characters/${topOshi.slug}`}
-                className="mt-2 flex items-center gap-2"
-              >
-                <div className="relative h-[34px] w-[34px] overflow-hidden rounded-full">
-                  <CharacterImage slug={topOshi.slug} src={topOshi.avatarUrl} alt={topOshi.name} fill sizes="34px" />
-                </div>
-                <div className="leading-snug">
-                  <div className="font-display text-[13px] font-bold">{topOshi.name}</div>
-                  <div className="text-[11px] text-[#ef7488]">☀️ {dict.feed.moodGood}</div>
-                </div>
-              </Link>
-            </div>
-          )}
         </aside>
 
         <main className="min-h-[calc(100vh-60px)] border-x border-[rgba(120,72,54,0.07)] bg-white">
@@ -160,15 +156,13 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
               {formatMessage(dict.feed.greeting, { name: userName })}
             </h2>
             <p className="mt-0.5 text-[12.5px] text-[#b0a099]">
-              {formatMessage(dict.feed.arrived, { count: feedPosts.length })}
+              {formatMessage(dict.feed.arrived, { count: todayCount })}
             </p>
           </div>
-          <EventBanner />
           <div className="flex gap-5 border-b border-[rgba(120,72,54,0.08)] px-[22px] pt-3.5">
             {[
               { label: dict.feed.tabRecommend, tab: undefined },
               { label: dict.feed.tabFollowing, tab: "following" },
-              { label: dict.feed.tabNearby, tab: "nearby" },
             ].map(({ label, tab }) => {
               const active = (feedTab ?? undefined) === tab || (!feedTab && !tab);
               const href = tab ? `/?tab=${tab}` : "/";
@@ -188,6 +182,7 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
             })}
           </div>
           <StoryRail characters={storyCharacters} basePath={basePath} />
+          <EventBanners events={events} basePath={basePath} />
           {feedPosts.length === 0 ? (
             <EmptyFeed
               isFollowing={isFollowing}
@@ -208,7 +203,7 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
         </main>
 
         <aside className="sticky top-[60px] hidden flex-col gap-3.5 px-4 py-5 xl:flex">
-          {topOshi && (
+          {topOshi && topAffinity && (
             <div
               className="rounded-[20px] border border-[rgba(239,116,136,0.14)] p-4"
               style={{
@@ -239,10 +234,8 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
                 />
               </div>
               <div className="mt-1.5 flex justify-between text-[10.5px] text-[#b0a099]">
-                <span>{topAffinity.percent * 10} / 1000</span>
-                <span className="font-bold text-[#ef7488]">
-                  {formatMessage(dict.feed.birthdayIn, { n: 12 })}
-                </span>
+                <span>{topAffinity.percent} / 100</span>
+                <span className="font-bold text-[#ef7488]">{topAffinity.label}</span>
               </div>
             </div>
           )}

@@ -10,11 +10,11 @@ export default function NewCharacterPage() {
   const [form, setForm] = useState({
     name: "",
     tagline: "",
-    avatarUrl: "/characters/aoi/avatar.png",
+    avatarUrl: "/characters/default-avatar.png",
     bio: "",
     personality: "",
     speechStyle: "",
-    tags: "校园,治愈",
+    tags: "",
     subscriptionPrice: 980,
     published: true,
   });
@@ -82,7 +82,7 @@ export default function NewCharacterPage() {
 
         <div>
           <label className="mb-2 block text-sm font-medium text-stone-700">
-            月額料金（円）
+            推し登録料金（コイン / 30日）
           </label>
           <input
             type="number"

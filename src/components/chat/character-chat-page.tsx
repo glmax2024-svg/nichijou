@@ -51,6 +51,7 @@ export async function CharacterChatPage({
     select: {
       id: true,
       slug: true,
+      greeting: true,
       name: true,
       avatarUrl: true,
       subscriptionPrice: true,

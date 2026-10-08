@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { z } from "zod";
-import { runChatPipeline } from "@/modules/agent";
+import { canUseSkill, getSkillPrompt, runChatPipeline, skillsForCharacter } from "@/modules/agent";
 import { getChatAccess } from "@/modules/billing";
 import {
   enforceAdultUser,
@@ -11,10 +11,13 @@ import {
   failClosedResponse,
   FailClosedError,
 } from "@/modules/governance";
+import { activeStatus } from "@/lib/character-status";
 
 const schema = z.object({
   characterId: z.string(),
   message: z.string().min(1).max(1000),
+  /** 通过技能入口发送时带上技能 id */
+  skillId: z.string().max(64).optional(),
 });
 
 export async function POST(request: Request) {
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { characterId, message } = schema.parse(body);
+    const { characterId, message, skillId } = schema.parse(body);
 
     const ageGate = await enforceAdultUser(session.user.id);
     if (ageGate) return ageGate;
@@ -61,6 +64,18 @@ export async function POST(request: Request) {
       );
     }
 
+    let skillPrompt: string | null = null;
+    if (skillId) {
+      const skill = skillsForCharacter(character).find((s) => s.id === skillId);
+      skillPrompt = skill ? getSkillPrompt(skill.id) : null;
+      if (!skill || !skillPrompt) {
+        return NextResponse.json({ error: "このキャラクターでは使えないスキルです" }, { status: 400 });
+      }
+      if (!canUseSkill(skill, { isSubscribed: access.isSubscribed, isLoggedIn: true })) {
+        return NextResponse.json({ error: "購読が必要なスキルです", code: "SKILL_LOCKED" }, { status: 403 });
+      }
+    }
+
     const userMessage = await prisma.message.create({
       data: {
         userId: session.user.id,
@@ -70,23 +85,36 @@ export async function POST(request: Request) {
       },
     });
 
-    const history = await prisma.message.findMany({
-      where: { userId: session.user.id, characterId },
-      orderBy: { createdAt: "asc" },
-      take: 20,
-    });
+    // 最近 20 条（不含刚存的这条，它作为 userMessage 单独传入，避免模型看到两遍）
+    const history = (
+      await prisma.message.findMany({
+        where: { userId: session.user.id, characterId, id: { not: userMessage.id } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      })
+    ).reverse();
 
-    const pipeline = await runChatPipeline({
-      userId: session.user.id,
-      character,
-      history: history.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-      userMessage: message,
-      isSubscribed: access.isSubscribed,
-      isCreator: access.isCreator,
-    });
+    let pipeline: Awaited<ReturnType<typeof runChatPipeline>>;
+    try {
+      const status = activeStatus(character);
+      pipeline = await runChatPipeline({
+        userId: session.user.id,
+        character,
+        currentStatus: status ? `${status.emoji} ${status.text}`.trim() : null,
+        history: history.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        })),
+        userMessage: message,
+        isSubscribed: access.isSubscribed,
+        isCreator: access.isCreator,
+        skillPrompt,
+      });
+    } catch (err) {
+      // 没有回复就撤回这条用户消息，否则聊天记录里会留下一条没人回的孤儿消息
+      await prisma.message.delete({ where: { id: userMessage.id } }).catch(() => {});
+      throw err;
+    }
 
     const assistantMessage = await prisma.message.create({
       data: {

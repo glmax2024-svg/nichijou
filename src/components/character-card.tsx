@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Heart } from "lucide-react";
 import { parseTags } from "@/lib/utils";
 import { CharacterImage } from "@/components/ui/character-image";
+import { formatCoins } from "@/lib/pricing";
 
 type CharacterCardProps = {
   slug: string;
@@ -59,7 +60,7 @@ export function CharacterCard({
           <span>{postCount} 投稿</span>
           <span className="inline-flex items-center gap-1 font-medium text-rose-500">
             <Heart className="h-4 w-4" />
-            ¥{subscriptionPrice}/月
+            {formatCoins(subscriptionPrice)}/30日
           </span>
         </div>
       </div>

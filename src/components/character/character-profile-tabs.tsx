@@ -41,7 +41,7 @@ export function CharacterProfileTabs({
   const [tab, setTab] = useState<ProfileTab>("daily");
   const tabs: { id: ProfileTab; icon: string; label: string }[] = [
     { id: "daily", icon: "grid_view", label: dict.character.dailyTab },
-    { id: "private", icon: "lock", label: dict.character.privateTab },
+    ...(privateMedia.length > 0 ? [{ id: "private" as const, icon: "lock", label: dict.character.privateTab }] : []),
     { id: "skills", icon: "auto_awesome", label: dict.character.skillsTab },
   ];
 

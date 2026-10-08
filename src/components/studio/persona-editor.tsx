@@ -46,7 +46,7 @@ export function PersonaEditor({ characterId }: { characterId: string }) {
               .map((id: string) => id.trim())
               .filter(Boolean);
             if (saved.length > 0) return saved.filter((id) => id !== "daily-chat");
-            return getCharacterSkills(data.slug, { tags: data.tags ?? "" })
+            return getCharacterSkills({ tags: data.tags ?? "" })
               .map((skill) => skill.id)
               .filter((id) => id !== "daily-chat");
           })(),

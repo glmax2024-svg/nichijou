@@ -7,7 +7,7 @@ export type SubscriptionPerk = {
 
 export const SUBSCRIPTION_PACKAGE = {
   title: "推しパッケージ",
-  tagline: "月額で、推しとの距離が一気に近くなる",
+  tagline: "30日間、推しとの距離が一気に近くなる",
   perks: [
     {
       icon: "chat",

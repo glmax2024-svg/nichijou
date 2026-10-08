@@ -9,5 +9,5 @@ export const tarotPlugin: SkillPlugin = {
     demoFree: true,
     skillType: "tarot",
   },
-  match: ({ slug, tags }) => slug === "aoi" || tags.includes("占い") || tags.includes("塔罗"),
+  match: ({ tags }) => tags.includes("占い") || tags.includes("塔罗"),
 };

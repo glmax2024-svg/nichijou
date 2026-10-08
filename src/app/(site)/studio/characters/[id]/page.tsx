@@ -6,10 +6,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { AmbientBg } from "@/components/ui/ambient-bg";
 import { MIcon } from "@/components/ui/m-icon";
-import { LoraTrainWizard } from "@/components/studio/lora-train-wizard";
+import { LoraTrainTab } from "@/components/studio/lora-train-tab";
+import { CharacterDangerZone } from "@/components/studio/character-danger-zone";
 import { LoraGeneratePanel } from "@/components/studio/lora-generate-panel";
 import { LoraLibraryPanel } from "@/components/studio/lora-library-panel";
 import { PersonaEditor } from "@/components/studio/persona-editor";
+import { CharacterStatusEditor } from "@/components/studio/character-status-editor";
 
 type Tab = "persona" | "post" | "train" | "library" | "generate" | "voice";
 
@@ -232,7 +234,12 @@ export default function ManageCharacterPage() {
         </div>
 
         <div className="mt-6">
-          {tab === "persona" && <PersonaEditor characterId={characterId} />}
+          {tab === "persona" && (
+            <div className="space-y-6">
+              <PersonaEditor characterId={characterId} />
+              {character && <CharacterDangerZone characterId={characterId} characterName={character.name} />}
+            </div>
+          )}
 
           {tab === "library" && (
             <LoraLibraryPanel
@@ -250,7 +257,7 @@ export default function ManageCharacterPage() {
           )}
 
           {tab === "train" && (
-            <LoraTrainWizard
+            <LoraTrainTab
               characterId={characterId}
               characterName={name}
               suggestedTrigger={suggestedTrigger}
@@ -266,6 +273,12 @@ export default function ManageCharacterPage() {
               preferredLoraName={generateHint}
               preferredCoverUrl={generateCover}
             />
+          )}
+
+          {tab === "post" && (
+            <div className="mb-6">
+              <CharacterStatusEditor characterId={characterId} />
+            </div>
           )}
 
           {tab === "post" && (

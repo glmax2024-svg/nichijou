@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export type ChatThread = {
   character: {
@@ -18,7 +19,7 @@ export type ChatThread = {
 export async function getChatThreads(userId: string): Promise<ChatThread[]> {
   const [subscriptions, messageGroups] = await Promise.all([
     prisma.subscription.findMany({
-      where: { userId, status: "ACTIVE" },
+      where: { userId, ...activeSubscriptionWhere() },
       select: { characterId: true },
     }),
     prisma.message.groupBy({

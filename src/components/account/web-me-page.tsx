@@ -5,9 +5,11 @@ import { AmbientBg } from "@/components/ui/ambient-bg";
 import { CharacterAvatar } from "@/components/ui/character-avatar";
 import { MIcon } from "@/components/ui/m-icon";
 import { characterChatHref } from "@/lib/chat-inbox";
+import { daysLeft, SUBSCRIPTION_EXPIRING_DAYS } from "@/lib/pricing";
 
 type Subscription = {
   id: string;
+  currentPeriodEnd: Date | null;
   character: {
     slug: string;
     name: string;
@@ -19,10 +21,12 @@ export function WebMePage({
   session,
   subscriptions,
   giftCount,
+  coinBalance,
 }: {
   session: Session;
   subscriptions: Subscription[];
   giftCount: number;
+  coinBalance: number;
 }) {
   return (
     <div className="relative min-h-[calc(100vh-60px)]">
@@ -44,7 +48,7 @@ export function WebMePage({
             {[
               { n: subscriptions.length, label: "推し中" },
               { n: giftCount, label: "ギフト" },
-              { n: 86, label: "日連続" },
+              { n: coinBalance.toLocaleString("ja-JP"), label: "コイン" },
             ].map((s) => (
               <div key={s.label} className="rounded-[14px] bg-[#fbf4f1] py-2.5">
                 <div className="font-display text-lg font-black text-[#ef7488]">{s.n}</div>
@@ -58,7 +62,8 @@ export function WebMePage({
               { href: "/messages", icon: "mail", label: "メッセージ" },
               { href: "/notifications", icon: "notifications", label: "通知" },
               { href: "/gifts", icon: "redeem", label: "ギフト履歴" },
-              { href: "/orders", icon: "alarm", label: "モーニングコール" },
+              { href: "/orders", icon: "alarm", label: "ボイスオーダー" },
+              { href: "/coins", icon: "toll", label: "コイン履歴" },
               { href: "/settings", icon: "settings", label: "設定" },
             ].map((item) => (
               <Link
@@ -104,7 +109,7 @@ export function WebMePage({
                     />
                     <div>
                       <div className="font-display font-bold">{sub.character.name}</div>
-                      <div className="text-xs font-bold text-[#3fae76]">継続中</div>
+                      <SubscriptionDays periodEnd={sub.currentPeriodEnd} />
                     </div>
                   </Link>
                   <Link
@@ -119,6 +124,16 @@ export function WebMePage({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SubscriptionDays({ periodEnd }: { periodEnd: Date | null }) {
+  const left = daysLeft(periodEnd);
+  const expiring = left <= SUBSCRIPTION_EXPIRING_DAYS;
+  return (
+    <div className={`text-xs font-bold ${expiring ? "text-[#d18a3a]" : "text-[#3fae76]"}`}>
+      残り {left} 日{expiring ? " · まもなく期限" : ""}
     </div>
   );
 }
