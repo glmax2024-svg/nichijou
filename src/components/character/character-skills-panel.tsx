@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { CharacterSkill } from "@/lib/character-skills";
 import { canUseSkill } from "@/lib/character-skills";
 import { MIcon } from "@/components/ui/m-icon";
+import { formatCoins } from "@/lib/pricing";
 
 type CharacterSkillsPanelProps = {
   skills: CharacterSkill[];
@@ -57,7 +58,7 @@ export function CharacterSkillsPanel({
                   </span>
                 ) : skill.priceFrom ? (
                   <span className="rounded-full bg-[#fff6e6] px-2 py-0.5 text-[10px] font-bold text-[#b8862e]">
-                    ¥{skill.priceFrom}〜
+                    {formatCoins(skill.priceFrom)}〜
                   </span>
                 ) : null}
               </div>

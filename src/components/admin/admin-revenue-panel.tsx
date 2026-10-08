@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { formatYen } from "@/lib/stripe";
+import { formatCoins } from "@/lib/pricing";
 import { formatSharePercent } from "@/lib/revenue/split";
 
 type Campaign = {
@@ -194,9 +194,9 @@ export function AdminRevenuePanel({ initial }: { initial: AdminRevenueData }) {
 
       <section className="grid gap-3 sm:grid-cols-3">
         {[
-          { label: "総売上", value: formatYen(initial.totals.gross) },
-          { label: "画师取り分", value: formatYen(initial.totals.creator) },
-          { label: "プラットフォーム", value: formatYen(initial.totals.platform) },
+          { label: "総売上", value: formatCoins(initial.totals.gross) },
+          { label: "画师取り分", value: formatCoins(initial.totals.creator) },
+          { label: "プラットフォーム", value: formatCoins(initial.totals.platform) },
         ].map((item) => (
           <div
             key={item.label}
@@ -407,8 +407,8 @@ export function AdminRevenuePanel({ initial }: { initial: AdminRevenueData }) {
                       <div className="text-[11px] text-[#ef7488]">{row.campaignName}</div>
                     ) : null}
                   </td>
-                  <td>{formatYen(row.grossAmount)}</td>
-                  <td>{formatYen(row.creatorAmount)}</td>
+                  <td>{formatCoins(row.grossAmount)}</td>
+                  <td>{formatCoins(row.creatorAmount)}</td>
                   <td>
                     {formatSharePercent(row.finalShareBps)}
                     {row.bonusBps > 0 ? `（+${formatSharePercent(row.bonusBps)}）` : ""}

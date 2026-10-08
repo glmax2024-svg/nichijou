@@ -13,7 +13,7 @@ import { mkdir, writeFile, readFile, unlink, rm } from "fs/promises";
 import path from "path";
 import { FailClosedError, isDemoMode } from "@/lib/runtime";
 
-export type UploadKind = "posts" | "lora" | "generated" | "gifts";
+export type UploadKind = "posts" | "lora" | "generated" | "gifts" | "events";
 
 export type StoredObject = {
   url: string;

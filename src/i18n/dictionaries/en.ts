@@ -289,7 +289,6 @@ const en: Dictionary = {
     arrived: "{count} daily posts from your oshi are here",
     tabRecommend: "For you",
     tabFollowing: "Following",
-    tabNearby: "Nearby",
     todayMood: "Today's oshi mood",
     moodGood: "In a good mood",
     empty: "No posts yet",

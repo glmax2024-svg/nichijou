@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { formatTimeAgo } from "@/lib/feed";
 import { characterChatHref } from "@/lib/chat-inbox";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export type AppNotification = {
   id: string;
@@ -25,7 +26,7 @@ export async function getNotifications(
       where: {
         character: {
           published: true,
-          subscriptions: { some: { userId, status: "ACTIVE" } },
+          subscriptions: { some: { userId, ...activeSubscriptionWhere() } },
         },
       },
       include: { character: { select: { slug: true, name: true, avatarUrl: true } } },
@@ -165,7 +166,7 @@ export async function countUnreadNotifications(userId: string): Promise<number> 
     prisma.post.count({
       where: {
         publishedAt: { gt: after },
-        character: { published: true, subscriptions: { some: { userId, status: "ACTIVE" } } },
+        character: { published: true, subscriptions: { some: { userId, ...activeSubscriptionWhere() } } },
       },
     }),
     dueRenewal(userId),

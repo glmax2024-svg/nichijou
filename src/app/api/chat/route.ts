@@ -11,6 +11,7 @@ import {
   failClosedResponse,
   FailClosedError,
 } from "@/modules/governance";
+import { activeStatus } from "@/lib/character-status";
 
 const schema = z.object({
   characterId: z.string(),
@@ -95,9 +96,11 @@ export async function POST(request: Request) {
 
     let pipeline: Awaited<ReturnType<typeof runChatPipeline>>;
     try {
+      const status = activeStatus(character);
       pipeline = await runChatPipeline({
         userId: session.user.id,
         character,
+        currentStatus: status ? `${status.emoji} ${status.text}`.trim() : null,
         history: history.map((m) => ({
           role: m.role as "user" | "assistant",
           content: m.content,

@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { MIcon } from "@/components/ui/m-icon";
 import { useLocale } from "@/components/i18n/locale-provider";
-import { redirectIfCheckout } from "@/lib/checkout-client";
+import { useRouter } from "next/navigation";
+import { purchaseErrorMessage } from "@/lib/pricing";
 import { GiftGrid } from "@/components/gifts/gift-grid";
 import { GiftFx, type GiftFxPayload } from "@/components/gifts/gift-fx";
 import { useGiftCatalog, type PublicGift } from "@/components/gifts/use-gift-catalog";
@@ -27,6 +28,7 @@ export function FeedGiftModal({
   loginHref,
 }: FeedGiftModalProps) {
   const { dict, t } = useLocale();
+  const router = useRouter();
   const gifts = useGiftCatalog();
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,8 +67,8 @@ export function FeedGiftModal({
         body: JSON.stringify({ characterId, giftType: gift.slug }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? dict.feed.giftFailed);
-      if (redirectIfCheckout(data)) return;
+      if (!res.ok) throw new Error(purchaseErrorMessage({ error: dict.feed.giftFailed, ...data }));
+      router.refresh();
       setFx({
         name: data.label ?? gift.name,
         emoji: data.emoji ?? gift.emoji,

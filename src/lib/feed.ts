@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export async function getFeedPosts(limit = 50) {
   return prisma.post.findMany({
@@ -26,7 +27,7 @@ export async function getFeedPosts(limit = 50) {
 export async function getStoryCharacters() {
   return prisma.character.findMany({
     where: { published: true },
-    include: { _count: { select: { posts: true, subscriptions: true } } },
+    include: { _count: { select: { posts: true, subscriptions: { where: activeSubscriptionWhere() } } } },
     orderBy: { updatedAt: "desc" },
     take: 20,
   });
@@ -35,7 +36,7 @@ export async function getStoryCharacters() {
 export async function getTrendingCharacters(limit = 5) {
   return prisma.character.findMany({
     where: { published: true },
-    include: { _count: { select: { posts: true, subscriptions: true } } },
+    include: { _count: { select: { posts: true, subscriptions: { where: activeSubscriptionWhere() } } } },
     orderBy: { subscriptions: { _count: "desc" } },
     take: limit,
   });

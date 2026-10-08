@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loginPath } from "@/lib/login-path";
-import { formatYen } from "@/lib/stripe";
+import { formatCoins } from "@/lib/pricing";
 import { formatTimeAgo } from "@/lib/feed";
 import { MobilePageHeader } from "@/components/mobile/mobile-page-header";
 import { CharacterAvatar } from "@/components/ui/character-avatar";
@@ -65,7 +65,7 @@ export async function GiftsHistoryPage({ basePath }: { basePath: "" | "/h5" | "/
                       {meta?.name ?? gift.giftType} → {gift.character.name}
                     </div>
                     <div className="text-[11.5px] text-[#8a7a72]">
-                      {formatYen(gift.amount)} · {formatTimeAgo(gift.createdAt)}
+                      {formatCoins(gift.amount)} · {formatTimeAgo(gift.createdAt)}
                     </div>
                   </div>
                   <Link

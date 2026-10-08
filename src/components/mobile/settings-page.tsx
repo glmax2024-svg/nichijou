@@ -91,6 +91,7 @@ export async function SettingsPage({ basePath }: SettingsPageProps) {
             <>
               <SettingsRow href="/admin/revenue" icon="payments" label="分成管理" />
               <SettingsRow href="/admin/gifts" icon="redeem" label="ギフト図録" />
+              <SettingsRow href="/admin/events" icon="celebration" label="イベント" />
               <SettingsRow href="/admin/beta" icon="how_to_reg" label="β版テスター" />
             </>
           )}

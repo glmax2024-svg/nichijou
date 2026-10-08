@@ -10,10 +10,7 @@ import { formatMemoryHints } from "@/lib/chat-greeting";
 import {
   resolveAnimeAvatar,
 } from "@/lib/character-media";
-import {
-  getDayPeriod,
-  getJstHour,
-} from "@/lib/character-live-status";
+import { loadCharacterLiveStatus } from "@/lib/character-status";
 import { skillsForCharacter } from "@/lib/character-skills";
 import { ChatThreadList } from "@/components/chat/chat-thread-list";
 import { ChatCharacterPanel } from "@/components/chat/chat-character-panel";
@@ -21,6 +18,7 @@ import { ChatThread } from "@/components/chat/chat-thread";
 import { MIcon } from "@/components/ui/m-icon";
 import { getRequestLocale } from "@/i18n/server";
 import { getDictionary } from "@/i18n";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 type ChatWorkspaceProps = {
   activeSlug?: string | null;
@@ -87,8 +85,12 @@ export async function ChatWorkspace({
         subscriptionPrice: true,
         published: true,
         creatorId: true,
+        statusEmoji: true,
+        statusText: true,
+        statusUpdatedAt: true,
+        statusExpiresAt: true,
         creator: { select: { name: true } },
-        _count: { select: { subscriptions: true, posts: true } },
+        _count: { select: { subscriptions: { where: activeSubscriptionWhere() }, posts: true } },
       },
     });
 
@@ -111,11 +113,16 @@ export async function ChatWorkspace({
     }
   }
 
-  const panelData = character
-    ? (() => {
-        const hourJst = getJstHour();
-        const dayPeriod = getDayPeriod(hourJst);
-        return {
+  const live = character
+    ? await loadCharacterLiveStatus(
+        character,
+        character.coverUrl ?? resolveAnimeAvatar(character.slug, character.avatarUrl),
+      )
+    : null;
+
+  const panelData =
+    character && live
+      ? {
           slug: character.slug,
           name: character.name,
           avatarUrl: resolveAnimeAvatar(character.slug, character.avatarUrl),
@@ -130,14 +137,12 @@ export async function ChatWorkspace({
           postCount: character._count.posts,
           creatorName: creatorName ?? "クリエイター",
           creatorId: character.creatorId,
-          // 角色实时状态暂无真实数据来源，不显示
-          liveStatus: null,
-          dailyMedia: [],
-          dayPeriod,
+          liveStatus: live.liveStatus,
+          dailyMedia: live.dailyMedia,
+          dayPeriod: live.dayPeriod,
           bond: chatContext.bond ?? null,
-        };
-      })()
-    : null;
+        }
+      : null;
 
   const memoryDisplay = formatMemoryHints(chatContext.memoryHints);
 

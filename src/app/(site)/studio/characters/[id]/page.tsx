@@ -11,6 +11,7 @@ import { CharacterDangerZone } from "@/components/studio/character-danger-zone";
 import { LoraGeneratePanel } from "@/components/studio/lora-generate-panel";
 import { LoraLibraryPanel } from "@/components/studio/lora-library-panel";
 import { PersonaEditor } from "@/components/studio/persona-editor";
+import { CharacterStatusEditor } from "@/components/studio/character-status-editor";
 
 type Tab = "persona" | "post" | "train" | "library" | "generate" | "voice";
 
@@ -272,6 +273,12 @@ export default function ManageCharacterPage() {
               preferredLoraName={generateHint}
               preferredCoverUrl={generateCover}
             />
+          )}
+
+          {tab === "post" && (
+            <div className="mb-6">
+              <CharacterStatusEditor characterId={characterId} />
+            </div>
           )}
 
           {tab === "post" && (

@@ -19,7 +19,7 @@ const CONTENT_TYPES: Record<string, string> = {
 };
 
 /** 只放行公开区与旧的公开上传目录；私有文件必须走 /api/media/<id> 鉴权 */
-const PUBLIC_PREFIXES = ["public/", "posts/", "generated/", "gifts/"];
+const PUBLIC_PREFIXES = ["public/", "posts/", "generated/", "gifts/", "events/"];
 /** 画师上传的 LoRA 训练素材：不公开，但登录用户（画师本人在 Studio 预览）需要能看 */
 const SESSION_PREFIXES = ["lora/"];
 

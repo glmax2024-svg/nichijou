@@ -33,10 +33,10 @@ export async function Header() {
       <div className="flex items-center gap-2.5">
         <LanguageSwitcher />
         {coins !== null && (
-          <div className="coin-badge hidden sm:flex tabular-nums">
+          <Link href="/coins" className="coin-badge hidden sm:flex tabular-nums" aria-label="コイン履歴">
             <MIcon name="toll" className="text-[17px] text-[#e0a93a]" filled />
             {coins.toLocaleString(locale)}
-          </div>
+          </Link>
         )}
         {session?.user && (
           <Link

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Character } from "@prisma/client";
+import { isSubscriptionActive } from "@/lib/subscriptions";
 
 export async function getCurrentUser() {
   const session = await auth();
@@ -12,7 +13,7 @@ export async function isSubscribed(userId: string, characterId: string) {
   const sub = await prisma.subscription.findUnique({
     where: { userId_characterId: { userId, characterId } },
   });
-  return sub?.status === "ACTIVE";
+  return isSubscriptionActive(sub);
 }
 
 export async function canChatWithCharacter(

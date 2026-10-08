@@ -16,6 +16,7 @@ import { isTarotSkill } from "@/lib/skills/tarot";
 import type { DrawnTarotCard } from "@/lib/skills/tarot";
 import { useLocale } from "@/components/i18n/locale-provider";
 import { formatBondLabel } from "@/lib/agent/bond-display";
+import { AGE_REQUIRED_MESSAGE } from "@/lib/pricing";
 
 export type ChatMessage = {
   id: string;
@@ -301,7 +302,7 @@ export function ChatThread({
           openSubscribeModal();
           throw new Error(data.error);
         }
-        throw new Error(data.error ?? "送信に失敗しました");
+        throw new Error(data.code === "AGE_REQUIRED" ? AGE_REQUIRED_MESSAGE : (data.error ?? "送信に失敗しました"));
       }
 
       setMessages((prev) => [
@@ -357,7 +358,7 @@ export function ChatThread({
           openSubscribeModal();
           return;
         }
-        throw new Error(data.error ?? "占いに失敗しました");
+        throw new Error(data.code === "AGE_REQUIRED" ? AGE_REQUIRED_MESSAGE : (data.error ?? "占いに失敗しました"));
       }
 
       setMessages((prev) => [

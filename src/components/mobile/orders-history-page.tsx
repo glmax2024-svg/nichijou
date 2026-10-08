@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { loginPath } from "@/lib/login-path";
-import { ORDER_OPTIONS, formatYen } from "@/lib/stripe";
+import { ORDER_OPTIONS, formatCoins } from "@/lib/pricing";
 import { formatTimeAgo } from "@/lib/feed";
 import { MobilePageHeader } from "@/components/mobile/mobile-page-header";
 import { CharacterAvatar } from "@/components/ui/character-avatar";
@@ -32,7 +32,7 @@ export async function OrdersHistoryPage({ basePath }: { basePath: "" | "/h5" | "
 
   return (
     <div className="min-h-full bg-[#fbf4f1]">
-      <MobilePageHeader title="モーニングコール" backHref={basePath ? `${basePath}/me` : "/me"} />
+      <MobilePageHeader title="ボイスオーダー" backHref={basePath ? `${basePath}/me` : "/me"} />
       <div className="px-[18px] py-3">
         {orders.length === 0 ? (
           <div className="py-16 text-center">
@@ -68,8 +68,16 @@ export async function OrdersHistoryPage({ basePath }: { basePath: "" | "/h5" | "
                       {statusLabel[order.status] ?? order.status}
                     </span>
                   </div>
+                  {order.content && (
+                    <p className="mt-2.5 whitespace-pre-wrap rounded-[12px] bg-[#fbf4f1] px-3 py-2 text-[12.5px] leading-relaxed text-[#463d38]">
+                      「{order.content}」
+                    </p>
+                  )}
+                  {order.voiceUrl && (
+                    <audio controls preload="none" src={order.voiceUrl} className="mt-2 h-9 w-full" />
+                  )}
                   <div className="mt-2 flex items-center justify-between text-[11.5px] text-[#8a7a72]">
-                    <span>{formatYen(order.amount)} · {formatTimeAgo(order.createdAt)}</span>
+                    <span>{formatCoins(order.amount)} · {formatTimeAgo(order.createdAt)}</span>
                     <Link href={`${basePath}/characters/${order.character.slug}`} className="font-bold text-[#ef7488]">
                       プロフィール
                     </Link>

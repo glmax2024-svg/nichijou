@@ -22,6 +22,8 @@ import { characterChatHref } from "@/lib/chat-inbox";
 import { CharacterImage } from "@/components/ui/character-image";
 import { skillsForCharacter } from "@/lib/character-skills";
 import { FREE_DAILY_MESSAGE_LIMIT } from "@/lib/chat-quota";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
+import { activeStatus, formatAgo } from "@/lib/character-status";
 
 type CharacterProfileProps = {
   slug: string;
@@ -41,7 +43,7 @@ export async function CharacterProfile({
     include: {
       creator: { select: { id: true, name: true } },
       posts: { orderBy: { publishedAt: "desc" } },
-      _count: { select: { subscriptions: true, posts: true } },
+      _count: { select: { subscriptions: { where: activeSubscriptionWhere() }, posts: true } },
     },
   });
 
@@ -52,6 +54,7 @@ export async function CharacterProfile({
     : false;
 
   const tags = parseTags(character.tags);
+  const status = activeStatus(character);
   const homeHref = basePath || "/";
   const chatHref = characterChatHref(basePath, slug);
   // 亲密度是用户与角色之间的真实关系数据；没聊过天就不显示
@@ -127,6 +130,7 @@ export async function CharacterProfile({
           {character.tagline && (
             <p className="mt-1 text-[12.5px] text-[#8a7a72]">{character.tagline}</p>
           )}
+          {status && <StatusPill status={status} />}
           <div className="mt-3.5 flex gap-[22px]">
             <Stat n={character._count.posts} label="投稿" mobile />
             <Stat n={character._count.subscriptions} label="推し" mobile />
@@ -239,17 +243,17 @@ export async function CharacterProfile({
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="font-display text-[27px] font-black">{character.name}</h1>
                   <span className="text-sm text-[#b0a099]">@{character.slug}</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[#eafaf1] px-2.5 py-1 text-[11px] font-bold text-[#3fae76]">
-                    <MIcon name="verified" className="text-[13px]" />
-                    LoRA 学習済み
-                  </span>
-                  <span className="rounded-full bg-[#fff6e6] px-2.5 py-1 text-[11px] font-bold text-[#b8862e]">
-                    🎂 8月15日
-                  </span>
+                  {character.loraStatus === "READY" && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[#eafaf1] px-2.5 py-1 text-[11px] font-bold text-[#3fae76]">
+                      <MIcon name="verified" className="text-[13px]" />
+                      LoRA 学習済み
+                    </span>
+                  )}
                 </div>
                 {character.tagline && (
                   <p className="mt-1 text-sm text-[#8a7a72]">{character.tagline}</p>
                 )}
+                {status && <StatusPill status={status} />}
               </div>
               <div className="flex flex-wrap gap-2.5 pb-1.5">
                 {(subscribed || session?.user) && (
@@ -393,5 +397,17 @@ function Stat({
         {label}
       </span>
     </div>
+  );
+}
+
+function StatusPill({ status }: { status: NonNullable<ReturnType<typeof activeStatus>> }) {
+  return (
+    <p className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-[#f4fbf6] px-3 py-1 text-[12px] text-[#3a3330]">
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#3fae76]" />
+      <span className="truncate">
+        {status.emoji} {status.text}
+      </span>
+      <span className="shrink-0 text-[#b0a099]">· {formatAgo(status.updatedAt)}</span>
+    </p>
   );
 }

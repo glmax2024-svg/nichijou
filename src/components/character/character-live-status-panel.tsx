@@ -128,7 +128,7 @@ export function CharacterLiveStatusPanel({
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#3fae76] opacity-60" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-[#3fae76]" />
             </span>
-            <span className="text-[10px] font-bold tracking-wide text-[#3fae76]">LIVE</span>
+            <span className="text-[10px] font-bold tracking-wide text-[#3fae76]">いま</span>
             <span className="text-[10px] text-[#b0a099]">· {liveStatus.title}</span>
           </div>
           <p className="mt-1 font-display text-[14px] font-bold leading-snug text-[#3a3330]">

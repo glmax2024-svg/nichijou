@@ -16,6 +16,9 @@ import { CharacterImage } from "@/components/ui/character-image";
 import { getRequestLocale } from "@/i18n/server";
 import { formatMessage, getDictionary } from "@/i18n";
 import type { Dictionary } from "@/i18n/dictionaries/ja";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
+import { listLiveEvents } from "@/lib/events";
+import { EventBanners } from "@/components/events/event-banner";
 
 type FeedPageProps = {
   basePath?: string;
@@ -29,12 +32,13 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
   const dict = getDictionary(locale);
   const isFollowing = feedTab === "following";
 
-  const [posts, storyCharacters, trending] = await Promise.all([
+  const [posts, storyCharacters, trending, events] = await Promise.all([
     isFollowing && session?.user
       ? getSubscribedFeedPosts(session.user.id)
       : getFeedPosts(),
     getStoryCharacters(),
     getTrendingCharacters(),
+    listLiveEvents(),
   ]);
 
   const postIds = posts.map((p) => p.id);
@@ -69,7 +73,7 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
 
   const subCount = session?.user
     ? await prisma.subscription.count({
-        where: { userId: session.user.id, status: "ACTIVE" },
+        where: { userId: session.user.id, ...activeSubscriptionWhere() },
       })
     : 0;
 
@@ -92,6 +96,7 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
       <div className="min-h-full">
         <div className="border-b border-[rgba(120,72,54,0.06)] bg-white">
           <StoryRail characters={storyCharacters} basePath={basePath} variant="mobile" />
+          <EventBanners events={events} basePath={basePath} compact />
         </div>
         <div className="bg-[#fbf4f1]">
           {feedPosts.length === 0 ? (
@@ -158,7 +163,6 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
             {[
               { label: dict.feed.tabRecommend, tab: undefined },
               { label: dict.feed.tabFollowing, tab: "following" },
-              { label: dict.feed.tabNearby, tab: "nearby" },
             ].map(({ label, tab }) => {
               const active = (feedTab ?? undefined) === tab || (!feedTab && !tab);
               const href = tab ? `/?tab=${tab}` : "/";
@@ -178,6 +182,7 @@ export async function FeedPage({ basePath = "", variant = "web", feedTab }: Feed
             })}
           </div>
           <StoryRail characters={storyCharacters} basePath={basePath} />
+          <EventBanners events={events} basePath={basePath} />
           {feedPosts.length === 0 ? (
             <EmptyFeed
               isFollowing={isFollowing}

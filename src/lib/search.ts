@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export const SEARCH_TAGS = ["おすすめ", "#治愈", "#恋爱", "#校园", "#元气", "#夜型"] as const;
 
@@ -34,7 +35,7 @@ export async function searchCharacters({
 
   return prisma.character.findMany({
     where: { AND: and },
-    include: { _count: { select: { posts: true, subscriptions: true } } },
+    include: { _count: { select: { posts: true, subscriptions: { where: activeSubscriptionWhere() } } } },
     orderBy: { subscriptions: { _count: "desc" } },
     take: limit,
   });
@@ -45,7 +46,7 @@ export async function getSubscribedFeedPosts(userId: string, limit = 50) {
     where: {
       character: {
         published: true,
-        subscriptions: { some: { userId, status: "ACTIVE" } },
+        subscriptions: { some: { userId, ...activeSubscriptionWhere() } },
       },
     },
     include: {

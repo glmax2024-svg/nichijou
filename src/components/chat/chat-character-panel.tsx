@@ -5,6 +5,7 @@ import { AffinityBar } from "@/components/ui/affinity-bar";
 import { CharacterLiveStatusPanel } from "@/components/character/character-live-status-panel";
 import { affinityFromBond, type BondSnapshot } from "@/lib/agent/bond-display";
 import type { DailyMediaItem, DayPeriod, LiveStatus } from "@/lib/character-live-status";
+import { formatCoins } from "@/lib/pricing";
 
 export type ChatCharacterPanelData = {
   slug: string;
@@ -85,7 +86,7 @@ export function ChatCharacterPanel({ character, basePath = "" }: ChatCharacterPa
             { label: "性格", value: character.personality.slice(0, 36) },
             { label: "推し", value: `${character.subscriberCount.toLocaleString()} 人` },
             { label: "投稿", value: `${character.postCount} 件` },
-            { label: "月額", value: `¥${character.subscriptionPrice.toLocaleString()}` },
+            { label: "推し登録", value: formatCoins(character.subscriptionPrice) },
           ].map(({ label, value }) => (
             <div key={label} className="rounded-[12px] bg-[#fbf4f1] px-3 py-2">
               <dt className="text-[10px] text-[#b0a099]">{label}</dt>
@@ -101,7 +102,7 @@ export function ChatCharacterPanel({ character, basePath = "" }: ChatCharacterPa
               className="btn-primary flex w-full items-center justify-center gap-2 rounded-[14px] py-2.5 text-sm"
             >
               <MIcon name="favorite" className="text-[18px] text-white" />
-              月額 ¥{character.subscriptionPrice.toLocaleString()} で推す
+              {formatCoins(character.subscriptionPrice)} で推す
             </Link>
           )}
           <Link

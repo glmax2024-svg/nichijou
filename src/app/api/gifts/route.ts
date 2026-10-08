@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createYenCheckout } from "@/lib/stripe";
 import { z } from "zod";
-import { FailClosedError, isDemoMode, isStripeConfigured } from "@/lib/runtime";
+import { FailClosedError } from "@/lib/runtime";
 import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
 import { enforceAdultUser } from "@/lib/security/age";
 import { enforceContentPolicy } from "@/lib/security/moderation";
-import { recordBondInteraction } from "@/lib/agent/relationship";
-import { recordRevenueShare } from "@/lib/revenue/ledger";
 import { getGiftBySlug, listGiftCatalog, toPublicGift } from "@/lib/gifts/catalog";
+import { purchaseErrorResponse, purchaseGift } from "@/lib/purchases";
+import { getCoinBalance } from "@/lib/coins";
 
 const schema = z.object({
   characterId: z.string(),
@@ -22,18 +21,14 @@ export async function GET() {
   return NextResponse.json({ gifts: catalog.map(toPublicGift) });
 }
 
+/** 用金币送礼物 */
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
   }
 
-  const limited = enforceRateLimit(
-    request,
-    "gifts",
-    { limit: 20, windowMs: 60_000 },
-    session.user.id,
-  );
+  const limited = enforceRateLimit(request, "gifts", { limit: 20, windowMs: 60_000 }, session.user.id);
   if (limited) return limited;
 
   try {
@@ -50,81 +45,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "ギフトが見つかりません" }, { status: 400 });
     }
 
-    const character = await prisma.character.findUnique({ where: { id: characterId } });
-    if (!character) {
+    const character = await prisma.character.findUnique({
+      where: { id: characterId },
+      select: { id: true, published: true, creatorId: true },
+    });
+    if (!character || (!character.published && character.creatorId !== session.user.id)) {
       return NextResponse.json({ error: "キャラクターが見つかりません" }, { status: 404 });
     }
 
-    if (!isStripeConfigured()) {
-      if (!isDemoMode()) {
-        throw new FailClosedError("決済が未設定のためギフトを送れません", "PAYMENTS_DISABLED");
-      }
-
-      const record = await prisma.gift.create({
-        data: {
-          userId: session.user.id,
-          characterId,
-          giftType: gift.slug,
-          amount: gift.amount,
-          message,
-        },
-      });
-      await recordBondInteraction({
-        userId: session.user.id,
-        characterId,
-        type: "gift",
-        summary: `ギフト: ${gift.name}`,
-        delta: gift.intimacyDelta,
-      });
-      await recordRevenueShare({
-        characterId,
-        kind: "GIFT",
-        sourceId: `gift:${record.id}`,
-        grossAmount: gift.amount,
-      });
-
-      return NextResponse.json({
-        gift: record,
-        label: gift.name,
-        emoji: gift.emoji,
-        iconUrl: gift.iconUrl,
-        animationUrl: gift.animationUrl,
-        animationKind: gift.animationKind,
-        demo: true,
-      });
-    }
-
-    const checkout = await createYenCheckout({
-      userId: session.user.id,
-      amount: gift.amount,
-      name: `${character.name} へ ${gift.name}`,
-      successPath: "/gifts",
-      cancelPath: "/gifts",
-      metadata: {
-        kind: "gift",
-        userId: session.user.id,
-        characterId,
-        giftType: gift.slug,
-        amount: String(gift.amount),
-        message: message ?? "",
-      },
-    });
+    const record = await purchaseGift({ userId: session.user.id, characterId, gift, message });
 
     return NextResponse.json({
-      checkoutUrl: checkout.url,
+      gift: record,
       label: gift.name,
       emoji: gift.emoji,
       iconUrl: gift.iconUrl,
       animationUrl: gift.animationUrl,
       animationKind: gift.animationKind,
+      balance: await getCoinBalance(session.user.id),
     });
   } catch (error) {
-    if (error instanceof FailClosedError) {
-      return failClosedResponse(error);
-    }
+    const purchase = purchaseErrorResponse(error);
+    if (purchase) return purchase;
+    if (error instanceof FailClosedError) return failClosedResponse(error);
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
     }
+    console.error("[gifts] failed:", error);
     return NextResponse.json({ error: "ギフト送信に失敗しました" }, { status: 500 });
   }
 }

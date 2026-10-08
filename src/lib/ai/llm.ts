@@ -32,6 +32,8 @@ type GenerateParams = {
   bond?: BondSnapshot | null;
   /** 使用技能时追加的指令 */
   skillPrompt?: string | null;
+  /** 「いまの様子」 */
+  currentStatus?: string | null;
 };
 
 export async function generateWithPersona(params: GenerateParams): Promise<string> {
@@ -122,10 +124,14 @@ function buildMessages(params: GenerateParams, scene: AiScene): GatewayMessage[]
     loraAugment,
     bond: params.bond,
   });
-  // 技能指令放在系统提示末尾：部分协议不允许对话中间出现 system 消息
-  const systemPrompt = params.skillPrompt
-    ? `${personaPrompt}\n\n## 今回の依頼（スキル）\n${params.skillPrompt}`
-    : personaPrompt;
+  // 状态与技能指令放在系统提示末尾：部分协议不允许对话中间出现 system 消息
+  let systemPrompt = personaPrompt;
+  if (params.currentStatus) {
+    systemPrompt += `\n\n## いまの様子\n${params.currentStatus}\n（この状況にいる前提で自然に振る舞う。聞かれない限り説明しない）`;
+  }
+  if (params.skillPrompt) {
+    systemPrompt += `\n\n## 今回の依頼（スキル）\n${params.skillPrompt}`;
+  }
 
   const recentHistory =
     config.historyMessages > 0

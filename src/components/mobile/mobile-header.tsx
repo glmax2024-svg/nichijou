@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { MIcon } from "@/components/ui/m-icon";
 import { getCoinBalance } from "@/lib/coins";
@@ -21,20 +22,22 @@ export async function MobileHeader({
       <span className="font-display text-[22px] font-black text-[#3a3330]">{title}</span>
       <div className="flex items-center gap-2 text-[#8a7a72]">
         {coins !== null && (
-          <div className="coin-badge hidden scale-90 sm:flex tabular-nums">
+          <Link href={`${basePath}/coins`} className="coin-badge scale-90 tabular-nums" aria-label="コイン履歴">
             <MIcon name="toll" className="text-[16px] text-[#e0a93a]" filled />
             {coins.toLocaleString("ja-JP")}
-          </div>
+          </Link>
         )}
-        <MIcon name="search" className="text-[24px]" />
-        <span className="relative">
+        <Link href={`${basePath}/search`} aria-label="検索">
+          <MIcon name="search" className="text-[24px]" />
+        </Link>
+        <Link href={`${basePath}/notifications`} className="relative" aria-label="通知">
           <MIcon name="notifications" className="text-[24px]" />
           {unread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-3.5 px-0.5 items-center justify-center rounded-full bg-[#ef7488] text-[8px] font-bold text-white">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
-        </span>
+        </Link>
       </div>
     </header>
   );

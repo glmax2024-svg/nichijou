@@ -46,6 +46,8 @@ export type ChatPipelineInput = {
   userMessage: string;
   /** 用户正在使用的技能：追加给模型的指令（回复仍由角色生成） */
   skillPrompt?: string | null;
+  /** 画师设置的「いまの様子」，让回复与状态一致 */
+  currentStatus?: string | null;
   /** 成本分档依据 —— 不传按免费用户处理（最省档）。 */
   isSubscribed?: boolean;
   isCreator?: boolean;

@@ -47,6 +47,7 @@ export async function runChatPipeline(input: ChatPipelineInput): Promise<ChatPip
     userId,
     bond,
     skillPrompt: input.skillPrompt ?? null,
+    currentStatus: input.currentStatus ?? null,
   });
 
   // Step 4: required Memos memory write

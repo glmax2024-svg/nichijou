@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import { resolveMediaUrl, storeMediaAsset } from "@/lib/media";
+import type { MediaAsset } from "@prisma/client";
+import { deleteMediaAsset, storeMediaAsset } from "@/lib/media";
 
 /** TTS 各路径返回的格式不同（Zetta 是 WAV，网关是 MP3），按文件头判断 */
 function sniffAudioType(audio: Buffer): string {
@@ -10,18 +10,11 @@ function sniffAudioType(audio: Buffer): string {
 }
 
 /**
- * 把订单语音存为该用户的私有资产并挂到订单上。
- * 之前这里的音频生成完就丢了，用户付了钱拿不到文件。
+ * 订单语音存为该用户的私有资产。在建单之前调用：
+ * 先存好音频再扣款建单，保证不会出现「付了钱拿不到语音」。
  */
-export async function persistOrderVoice(params: {
-  orderId: string;
-  userId: string;
-  characterId: string;
-  audio: Buffer | null;
-}): Promise<string | null> {
-  if (!params.audio || params.audio.length === 0) return null;
-
-  const asset = await storeMediaAsset({
+export function storeOrderVoice(params: { userId: string; characterId: string; audio: Buffer }): Promise<MediaAsset> {
+  return storeMediaAsset({
     kind: "AUDIO",
     visibility: "PRIVATE",
     body: params.audio,
@@ -29,13 +22,11 @@ export async function persistOrderVoice(params: {
     source: "tts",
     characterId: params.characterId,
     userId: params.userId,
-    sourceMeta: { orderId: params.orderId },
+    sourceMeta: { purpose: "order" },
   });
+}
 
-  const voiceUrl = resolveMediaUrl(asset);
-  await prisma.order.update({
-    where: { id: params.orderId },
-    data: { voiceAssetId: asset.id, voiceUrl },
-  });
-  return voiceUrl;
+/** 建单失败时清掉已经上传的音频 */
+export async function discardOrderVoice(assetId: string) {
+  await deleteMediaAsset(assetId).catch((err) => console.error("[order-voice] cleanup failed:", err));
 }

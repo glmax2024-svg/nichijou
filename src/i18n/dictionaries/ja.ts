@@ -124,7 +124,7 @@ const ja = {
     officialChars: "Official キャラ",
     totalFans: "総推し",
     earnings: "収益",
-    estMrr: "推定 MRR",
+    estMrr: "推し登録（30日・推定）",
     brandLine:
       "ファンは Profile で「Official by {name}」を見て、Feed の返信から Chat へ。登録後は限定コンテンツと IP スキルが解放される — ブランド導線がつながっています。",
     doneLora: "完成した LoRA",
@@ -288,7 +288,6 @@ const ja = {
     arrived: "推しの今日の日常が {count} 件とどいてるよ",
     tabRecommend: "おすすめ",
     tabFollowing: "フォロー中",
-    tabNearby: "近くの子",
     todayMood: "今日の推しの気分",
     moodGood: "ごきげん",
     empty: "まだ投稿がありません",

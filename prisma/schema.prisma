@@ -172,6 +172,11 @@ model Character {
   ipSourceWork      String?
   earnings          CreatorEarning[]
   mediaAssets       MediaAsset[]
+  /// 「いまの様子」：画师在工作室设置，过期后不再显示
+  statusEmoji       String?
+  statusText        String?
+  statusUpdatedAt   DateTime?
+  statusExpiresAt   DateTime?
 
   @@index([catalogLoraBase])
 }
@@ -659,4 +664,27 @@ model CoinTransaction {
 
   @@index([userId, createdAt])
   @@unique([reason, refType, refId])
+}
+
+/// 运营活动（首页横幅）。published 且当前时间在 startsAt..endsAt 之间才展示
+model PlatformEvent {
+  id          String   @id @default(cuid())
+  title       String
+  subtitle    String   @default("")
+  description String   @default("") @db.Text
+  badge       String   @default("期間限定イベント")
+  /// 横幅配色，见 src/lib/event-themes.ts
+  theme       String   @default("sakura")
+  imageUrl    String?
+  /// 站内路径（/characters/xxx）或 https 链接；为空时按钮进活动详情页
+  linkHref    String?
+  ctaLabel    String   @default("詳しく見る")
+  startsAt    DateTime
+  endsAt      DateTime
+  published   Boolean  @default(false)
+  sortOrder   Int      @default(100)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published, startsAt, endsAt])
 }

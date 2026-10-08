@@ -29,7 +29,3 @@ export function isDemoMode(): boolean {
   if (explicit !== null) return explicit;
   return process.env.NODE_ENV !== "production";
 }
-
-export function isStripeConfigured(): boolean {
-  return Boolean(process.env.STRIPE_SECRET_KEY);
-}

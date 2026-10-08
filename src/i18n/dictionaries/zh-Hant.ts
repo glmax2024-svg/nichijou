@@ -287,7 +287,6 @@ const zhHant: Dictionary = {
     arrived: "今天推的日常有 {count} 則到了喔",
     tabRecommend: "推薦",
     tabFollowing: "追蹤中",
-    tabNearby: "附近",
     todayMood: "今天推的心情",
     moodGood: "心情不錯",
     empty: "還沒有貼文",

@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { MIcon } from "@/components/ui/m-icon";
-import { redirectIfCheckout } from "@/lib/checkout-client";
+import { formatCoins, purchaseErrorMessage, SUBSCRIPTION_PERIOD_DAYS } from "@/lib/pricing";
 import { FREE_DAILY_MESSAGE_LIMIT } from "@/lib/chat-quota";
 import { SUBSCRIPTION_PACKAGE } from "@/lib/subscription-perks";
 
@@ -61,8 +61,7 @@ export function SubscriptionModal({
         body: JSON.stringify({ characterId }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "加入に失敗しました");
-      if (redirectIfCheckout(data)) return;
+      if (!res.ok) throw new Error(purchaseErrorMessage({ error: "加入に失敗しました", ...data }));
       onSubscribed?.();
       onClose();
       router.refresh();
@@ -160,7 +159,7 @@ export function SubscriptionModal({
               <MIcon name="diamond" className="text-[20px] text-white" />
               {loading
                 ? "処理中…"
-                : `推し登録 · ¥${subscriptionPrice.toLocaleString()}/月`}
+                : `推し登録 · ${formatCoins(subscriptionPrice)} / ${SUBSCRIPTION_PERIOD_DAYS}日`}
             </button>
             {error && <p className="mt-2 text-center text-[12px] text-red-400">{error}</p>}
             <button
