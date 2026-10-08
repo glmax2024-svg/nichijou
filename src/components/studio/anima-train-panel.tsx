@@ -35,7 +35,7 @@ export type TrainingStatusPayload = {
   loraVersion: number;
   loraJobs: TrainingJob[];
   quota: { limit: number | null; used: number; remaining: number | null; resetsAt: string };
-  trainingMode: "anima" | "legacy";
+  trainingMode: "anima" | "legacy" | "none";
 };
 
 type Validation = { image_count: number; duplicates_removed: number };

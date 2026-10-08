@@ -150,6 +150,7 @@ const ja = {
     copyTrigger: "Trigger をコピー",
     allCount: "すべて ({n})",
     trainedHere: "このスタジオで訓練",
+    libraryEmpty: "まだ訓練済みの LoRA はありません。「LoRA 訓練」タブから作成できます。",
     trainDesc: "「{name}」専用 adapter。会話と日常生成に自動で注入されます。",
     trainSteps: ["設定", "データセット", "レシピ", "確認"],
     recipeSimple: "キャラ · シンプル",
@@ -178,7 +179,9 @@ const ja = {
     recipeTitle: "訓練レシピ",
     recipeHint: "プリセットを選んでからパラメータを微調整できます。",
     confirmTitle: "確認して訓練を開始",
-    confirmHint: "問題なければ開始。デモ環境では進捗をシミュレートします。",
+    confirmHint: "問題なければ開始してください。",
+    trainUnavailable: "学習サービスはまだ利用できません。しばらくしてからお試しください。",
+    trainStatusFailed: "学習状況を読み込めませんでした。ページを再読み込みしてください。",
     imageCount: "画像数",
     imageCountValue: "{n} 枚",
     estSteps: "想定 steps",
@@ -261,7 +264,8 @@ const ja = {
     demoPreview: "Demo · ボイスクローン通話プレビュー",
   },
   chat: {
-    missedCall: "{name}：出られなかったみたい… 話したくなったらまたかけてね。",
+    callEnded: "通話終了 · {duration}",
+    callMissed: "通話はつながりませんでした",
   },
   creator: {
     brandChain: "画師 × Official キャラ · ブランド導線",

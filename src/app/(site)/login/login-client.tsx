@@ -12,10 +12,8 @@ import { BetaApplyForm } from "@/components/beta/beta-apply-form";
 type Mode = "login" | "register" | "apply";
 
 export default function LoginPageClient({
-  showDemoHints = false,
   inviteOnly = true,
 }: {
-  showDemoHints?: boolean;
   inviteOnly?: boolean;
 }) {
   const router = useRouter();
@@ -217,7 +215,7 @@ export default function LoginPageClient({
                       value={form.email}
                       onChange={(e) => setForm({ ...form, email: e.target.value })}
                       className="flex-1 bg-transparent text-sm outline-none"
-                      placeholder="fan@demo.jp"
+                      placeholder="you@example.com"
                     />
                   </div>
 
@@ -270,13 +268,6 @@ export default function LoginPageClient({
                 </p>
               )}
 
-              {mode === "login" && showDemoHints && (
-                <div className="mt-5 rounded-[14px] bg-[#faf5f2] p-4 text-xs leading-relaxed text-[#8a7a72]">
-                  <span className="font-bold text-[#3a3330]">デモアカウント</span>
-                  <br />
-                  ファン: fan@demo.jp / demo123 · 画师: creator@demo.jp / demo123
-                </div>
-              )}
             </div>
           </div>
         </div>

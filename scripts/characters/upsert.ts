@@ -71,6 +71,7 @@ async function main() {
       brandVoice: c.brandVoice,
       boundaries: c.boundaries,
       tags: c.tags,
+      gender: c.gender,
       contentRating: c.contentRating,
       skillIds: c.skillIds,
       subscriptionPrice: c.subscriptionPrice,

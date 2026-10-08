@@ -11,10 +11,8 @@ import {
   resolveAnimeAvatar,
 } from "@/lib/character-media";
 import {
-  getCharacterDailyMedia,
   getDayPeriod,
   getJstHour,
-  getPrimaryLiveStatus,
 } from "@/lib/character-live-status";
 import { skillsForCharacter } from "@/lib/character-skills";
 import { ChatThreadList } from "@/components/chat/chat-thread-list";
@@ -77,6 +75,7 @@ export async function ChatWorkspace({
       select: {
         id: true,
         slug: true,
+        greeting: true,
         name: true,
         avatarUrl: true,
         coverUrl: true,
@@ -131,12 +130,9 @@ export async function ChatWorkspace({
           postCount: character._count.posts,
           creatorName: creatorName ?? "クリエイター",
           creatorId: character.creatorId,
-          liveStatus: getPrimaryLiveStatus(character.slug, {
-            chatting: true,
-            hourJst,
-            locale,
-          }),
-          dailyMedia: getCharacterDailyMedia(character.slug, locale),
+          // 角色实时状态暂无真实数据来源，不显示
+          liveStatus: null,
+          dailyMedia: [],
           dayPeriod,
           bond: chatContext.bond ?? null,
         };

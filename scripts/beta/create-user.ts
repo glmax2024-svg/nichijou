@@ -3,13 +3,15 @@
  *
  *   NEW_USER_PASSWORD='...' npm run users:create -- --email=you@example.com --name=运营 --role=ADMIN
  *
- * 不传 NEW_USER_PASSWORD 时自动生成一个强密码并打印一次。
+ * 不传 NEW_USER_PASSWORD 时自动生成一个强密码，写入 .env.accounts.local（不打印）。
  * 邮箱已存在时只更新身份，不改密码。
  */
 
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { PrismaClient, type UserRole } from "@prisma/client";
+import { grantSignupBonus } from "@/lib/coins";
+import { saveCredential } from "../lib/credentials";
 
 const prisma = new PrismaClient();
 const arg = (name: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
@@ -33,7 +35,7 @@ async function main() {
   if (password.length < 10) throw new Error("NEW_USER_PASSWORD 至少 10 位");
 
   const now = new Date();
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       email,
       name,
@@ -44,8 +46,12 @@ async function main() {
       termsAcceptedAt: now,
     },
   });
+  await grantSignupBonus(prisma, user.id);
   console.log(`✓ 已创建 ${role}：${email}`);
-  if (generated) console.log(`  初始密码（只显示这一次）：${password}`);
+  if (generated) {
+    saveCredential(email, password, `${role} 账号`);
+    console.log("  初始密码已写入 .env.accounts.local");
+  }
 }
 
 main()

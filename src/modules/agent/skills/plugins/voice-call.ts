@@ -9,5 +9,6 @@ export const voiceCallPlugin: SkillPlugin = {
     demoFree: true,
     skillType: "call",
   },
-  match: ({ slug }) => slug === "aoi" || slug === "mio",
+  // 需要角色绑定了声线才能通话，所以不默认开放，必须在角色的 skillIds 里显式开启
+  match: () => false,
 };

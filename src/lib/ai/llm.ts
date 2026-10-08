@@ -13,7 +13,7 @@ import { buildLoraSystemAugment, loraWorkerHeaders } from "./lora";
 import { formatMemoriesForPrompt } from "./memos-plugin";
 import { runSceneChat, getSceneConfig, type AiScene } from "./model-router";
 import type { GatewayMessage } from "./gateway";
-import { FailClosedError, isDemoMode } from "@/lib/runtime";
+import { FailClosedError } from "@/lib/runtime";
 import { buildPersonaSystemPrompt } from "@/lib/agent/prompt";
 import type { BondSnapshot } from "@/lib/agent/bond-display";
 
@@ -30,6 +30,8 @@ type GenerateParams = {
   scene?: AiScene;
   userId?: string | null;
   bond?: BondSnapshot | null;
+  /** 使用技能时追加的指令 */
+  skillPrompt?: string | null;
 };
 
 export async function generateWithPersona(params: GenerateParams): Promise<string> {
@@ -56,17 +58,12 @@ export async function generateWithPersona(params: GenerateParams): Promise<strin
     });
     return result.text;
   } catch (err) {
+    // 不再用固定文案冒充角色回复：服务不可用就如实报错
     console.error("[llm] gateway failed:", err);
-    if (!isDemoMode()) {
-      throw err instanceof FailClosedError
-        ? err
-        : new FailClosedError("AI 网关不可用", "AI_GATEWAY_UNAVAILABLE");
-    }
+    throw err instanceof FailClosedError
+      ? err
+      : new FailClosedError("いまは返信できません。少し時間をおいて試してください", "AI_GATEWAY_UNAVAILABLE");
   }
-
-  const memoryHint =
-    params.memories.length > 0 ? `\n（記憶: ${params.memories[0].content.slice(0, 40)}…）` : "";
-  return `${params.character.name}：うん、聞いてるよ！${memoryHint}（AI_GATEWAY_API_KEY を設定すると AI 返信が有効になります）`;
 }
 
 async function generateViaLoraInference(
@@ -119,12 +116,16 @@ function buildMessages(params: GenerateParams, scene: AiScene): GatewayMessage[]
   const loraAugment = buildLoraSystemAugment(loraConfig);
   const memoryBlock = formatMemoriesForPrompt(trimmedMemories);
 
-  const systemPrompt = buildPersonaSystemPrompt({
+  const personaPrompt = buildPersonaSystemPrompt({
     character,
     memoryBlock,
     loraAugment,
     bond: params.bond,
   });
+  // 技能指令放在系统提示末尾：部分协议不允许对话中间出现 system 消息
+  const systemPrompt = params.skillPrompt
+    ? `${personaPrompt}\n\n## 今回の依頼（スキル）\n${params.skillPrompt}`
+    : personaPrompt;
 
   const recentHistory =
     config.historyMessages > 0

@@ -22,7 +22,6 @@ export {
   skillsForCharacter,
   canUseSkill,
   listSkillCatalog,
-  getSkillReply,
-  getSkillReplyOrFallback,
+  getSkillPrompt,
 } from "@/modules/agent/skills/registry";
 export type { CharacterSkill, SkillPlugin, SkillMatchContext } from "@/modules/agent/skills/types";

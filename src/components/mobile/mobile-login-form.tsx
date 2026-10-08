@@ -12,13 +12,11 @@ type Mode = "login" | "register" | "apply";
 export function MobileLoginForm({
   defaultCallbackUrl = "/h5",
   embedded = false,
-  showDemoHints = false,
   legalBasePath = "/h5",
   inviteOnly = true,
 }: {
   defaultCallbackUrl?: string;
   embedded?: boolean;
-  showDemoHints?: boolean;
   legalBasePath?: "" | "/h5" | "/app";
   inviteOnly?: boolean;
 }) {
@@ -193,7 +191,7 @@ export function MobileLoginForm({
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="flex-1 bg-transparent text-[13.5px] outline-none"
-                placeholder="fan@demo.jp"
+                placeholder="you@example.com"
               />
             </div>
 
@@ -237,11 +235,6 @@ export function MobileLoginForm({
           </p>
         )}
 
-        {mode === "login" && showDemoHints && (
-          <p className="mt-4 text-center text-[11.5px] leading-[1.7] text-[#b0a099]">
-            デモ: fan@demo.jp / demo123
-          </p>
-        )}
       </div>
     </div>
   );

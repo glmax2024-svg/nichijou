@@ -11,7 +11,7 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.mjs",
-    "assets:png": "node scripts/fix-character-svgs.mjs && node scripts/svg-to-png.mjs",
+    "assets:png": "node scripts/svg-to-png.mjs",
     "db:setup": "prisma db push && node prisma/seed.mjs",
     "launch:check": "node scripts/launch-check.mjs",
     "storage:smoke": "npx tsx scripts/storage-smoke.ts",
@@ -22,7 +22,11 @@
     "characters:upsert": "tsx --env-file=.env scripts/characters/upsert.ts",
     "users:create": "tsx --env-file=.env scripts/beta/create-user.ts",
     "invites:create": "tsx --env-file=.env scripts/beta/create-invites.ts",
-    "icons:sync": "node scripts/icons/sync.mjs"
+    "icons:sync": "node scripts/icons/sync.mjs",
+    "characters:import": "tsx --env-file=.env scripts/characters/import-catalog.ts",
+    "characters:assign-creators": "tsx --env-file=.env scripts/characters/assign-creators.ts",
+    "data:purge-demo": "tsx --env-file=.env scripts/data/purge-demo.ts",
+    "characters:greetings": "tsx --env-file=.env scripts/characters/draft-greetings.ts"
   },
   "postinstall": "prisma generate",
   "dependencies": {

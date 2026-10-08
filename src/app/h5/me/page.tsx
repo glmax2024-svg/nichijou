@@ -3,7 +3,6 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { H5MeLoggedIn } from "@/components/mobile/h5-me-logged-in";
 import { MobileLoginForm } from "@/components/mobile/mobile-login-form";
-import { isDemoMode } from "@/lib/runtime";
 
 export default async function H5MePage() {
   const session = await auth();
@@ -27,7 +26,6 @@ export default async function H5MePage() {
           defaultCallbackUrl="/h5/me"
           embedded
           legalBasePath="/h5"
-          showDemoHints={isDemoMode()}
         />
       </Suspense>
     );

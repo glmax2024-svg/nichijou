@@ -6,6 +6,7 @@ import { z } from "zod";
 import { FailClosedError } from "@/lib/runtime";
 import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
 import { isAnimaTrainingConfigured } from "@/lib/ai/providers/anima-train";
+import { isLegacyTrainingConfigured } from "@/lib/ai/lora";
 import { getTrainingQuota, startTraining, TrainingError } from "@/lib/ai/lora-training";
 
 const datasetImageSchema = z.object({
@@ -137,7 +138,7 @@ export async function GET(request: Request) {
     ...status,
     generations,
     quota,
-    // 前端据此决定显示新版训练流程还是旧的配方向导
-    trainingMode: isAnimaTrainingConfigured() ? "anima" : "legacy",
+    // 前端据此决定显示 Anima 训练流程、旧的配方向导（外部训练服务），或「未配置」
+    trainingMode: isAnimaTrainingConfigured() ? "anima" : isLegacyTrainingConfigured() ? "legacy" : "none",
   });
 }

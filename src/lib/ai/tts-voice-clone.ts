@@ -9,7 +9,7 @@ import type { VoiceEnrollInput, VoiceEnrollResult } from "./types";
 import { VOICE_MIN_SAMPLE_SEC, VOICE_MAX_SAMPLE_SEC } from "./types";
 import { gatewaySpeech, isGatewayConfigured } from "./gateway";
 import { TTS_MODEL, TTS_VOICE } from "./model-router";
-import { FailClosedError, isDemoMode } from "@/lib/runtime";
+import { FailClosedError } from "@/lib/runtime";
 import { isZettaTtsConfigured, isZettaVoice, synthesizeZetta } from "./providers/zetta-tts";
 
 const TTS_API_URL = process.env.TTS_CLONE_API_URL;
@@ -61,9 +61,9 @@ export async function enrollVoiceProfile(input: VoiceEnrollInput): Promise<Voice
 
   if (TTS_API_URL && TTS_API_KEY) {
     embeddingId = await enrollRemote(characterId, sampleAudioUrl, durationSec);
-  } else if (isDemoMode()) {
-    embeddingId = await enrollSimulated(characterId, sampleAudioUrl, durationSec);
   } else {
+    // 不再伪造声纹 id：没有声纹服务就如实报错
+    await prisma.voiceProfile.update({ where: { id: profile.id }, data: { status: "FAILED" } });
     throw new FailClosedError("声纹克隆服务未配置", "TTS_CLONE_UNAVAILABLE");
   }
 
@@ -106,17 +106,6 @@ async function enrollRemote(
 
   const data = (await res.json()) as { embedding_id: string };
   return data.embedding_id;
-}
-
-async function enrollSimulated(
-  characterId: string,
-  sampleAudioUrl: string,
-  durationSec: number,
-): Promise<string> {
-  const hash = Buffer.from(`${characterId}:${sampleAudioUrl}:${durationSec}`)
-    .toString("base64url")
-    .slice(0, 16);
-  return `voice_emb_${hash}`;
 }
 
 /** Synthesize speech with a registered voiceprint. */

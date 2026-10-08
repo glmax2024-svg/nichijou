@@ -11,14 +11,15 @@ import { CharacterActions } from "@/components/character-actions";
 import { MIcon } from "@/components/ui/m-icon";
 import { AmbientBg } from "@/components/ui/ambient-bg";
 import { AffinityBar } from "@/components/ui/affinity-bar";
+import type { CharacterMediaItem } from "@/lib/character-media";
+import { affinityFromBond, loadBond } from "@/lib/agent/relationship";
 import { GiftShelf } from "@/components/ui/gift-shelf";
 import { ProfileCover } from "@/components/ui/profile-cover";
 import { CreatorOfficialBadge } from "@/components/character/creator-badge";
-import { mockAffinity } from "@/lib/scenes";
+
 import { loginPath } from "@/lib/login-path";
 import { characterChatHref } from "@/lib/chat-inbox";
 import { CharacterImage } from "@/components/ui/character-image";
-import { getCharacterPrivateMedia } from "@/lib/character-media";
 import { skillsForCharacter } from "@/lib/character-skills";
 import { FREE_DAILY_MESSAGE_LIMIT } from "@/lib/chat-quota";
 
@@ -53,10 +54,13 @@ export async function CharacterProfile({
   const tags = parseTags(character.tags);
   const homeHref = basePath || "/";
   const chatHref = characterChatHref(basePath, slug);
-  const affinity = mockAffinity(character.slug);
+  // 亲密度是用户与角色之间的真实关系数据；没聊过天就不显示
+  const bond = session?.user?.id ? await loadBond(session.user.id, character.id) : null;
+  const affinity = bond ? affinityFromBond(bond) : null;
   const commentsByPost = await getCommentsForPosts(character.posts.map((p) => p.id));
   const loginHref = loginPath(basePath, `${basePath}/characters/${slug}`);
-  const privateMedia = getCharacterPrivateMedia(character.slug);
+  // 订阅者专属内容暂无数据来源，「专属」分页隐藏
+  const privateMedia: CharacterMediaItem[] = [];
   const skills = skillsForCharacter(character);
 
   const postCards = character.posts.map((post, i) => {
@@ -280,13 +284,14 @@ export async function CharacterProfile({
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-5">
-              <div className="min-w-[260px] flex-1">
-                <AffinityBar level={affinity.level} percent={affinity.percent} />
-              </div>
+              {affinity && (
+                <div className="min-w-[260px] flex-1">
+                  <AffinityBar level={affinity.level} percent={affinity.percent} label={affinity.label} />
+                </div>
+              )}
               <div className="flex gap-6 sm:gap-7">
                 <Stat n={character._count.posts} label="投稿" />
                 <Stat n={character._count.subscriptions} label="推し" />
-                <Stat n={98} label="返信率" suffix="%" />
               </div>
             </div>
 

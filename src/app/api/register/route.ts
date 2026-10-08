@@ -9,6 +9,7 @@ import {
   underageResponse,
 } from "@/lib/security/age";
 import { InviteCodeError, isInviteOnly, redeemInviteCode } from "@/lib/beta/invite";
+import { grantSignupBonus } from "@/lib/coins";
 
 const schema = z.object({
   email: z.string().email(),
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
     // 占用邀请码和建用户放在同一个事务里：建号失败时名额不会被白白消耗
     const user = await prisma.$transaction(async (tx) => {
       const invite = inviteOnly ? await redeemInviteCode(tx, data.inviteCode!, data.email) : null;
-      return tx.user.create({
+      const created = await tx.user.create({
         data: {
           email: data.email,
           name: data.name,
@@ -61,6 +62,8 @@ export async function POST(request: Request) {
           termsAcceptedAt: now,
         },
       });
+      await grantSignupBonus(tx, created.id);
+      return created;
     });
 
     return NextResponse.json({ id: user.id, email: user.email, role: user.role });

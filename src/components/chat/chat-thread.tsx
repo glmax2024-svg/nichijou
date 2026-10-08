@@ -10,7 +10,6 @@ import { SubscriptionModal } from "@/components/subscriptions/subscription-modal
 import type { ChatAccess } from "@/lib/chat-quota";
 import { canUseSkill, type CharacterSkill } from "@/lib/character-skills";
 import { buildSkillCommand, parseSkillCommand } from "@/lib/chat-skill-command";
-import { getSkillReplyOrFallback } from "@/lib/chat-skill-replies";
 import { buildPostContextBanner, type PostContext } from "@/lib/chat-greeting";
 import { isCallSkill, formatCallDuration } from "@/lib/skills/call";
 import { isTarotSkill } from "@/lib/skills/tarot";
@@ -61,9 +60,19 @@ function buildInitialMessages(
   ];
 }
 
+/** 只在界面上显示、不经过服务端的本地消息 */
+function localMessage(role: ChatMessage["role"], content: string): ChatMessage {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    role,
+    content,
+    isAiGenerated: role === "assistant",
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export function ChatThread({
   characterId,
-  characterSlug,
   characterName,
   characterAvatar,
   initialMessages,
@@ -199,31 +208,21 @@ export function ChatThread({
 
   function handleCallEnd(durationSec: number) {
     setShowVoiceCall(false);
-    const label = formatCallDuration(durationSec);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `call-end-${Date.now()}`,
-        role: "assistant",
-        content:
-          durationSec > 0
-            ? `${characterName}：通话结束啦～ 今天聊了 ${label}，下次再打来哦。`
-            : t(dict.chat.missedCall, { name: characterName }),
-        isAiGenerated: true,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
+    // 只在本地插一条系统提示，不替角色编台词
+    const notice =
+      durationSec > 0 ? t(dict.chat.callEnded, { duration: formatCallDuration(durationSec) }) : dict.chat.callMissed;
+    setMessages((prev) => [...prev, localMessage("system", notice)]);
     pinToBottom();
   }
 
   function invokeSkill(skill: CharacterSkill, commandText: string) {
-    const userMsg: ChatMessage = {
-      id: `skill-${Date.now()}`,
-      role: "user",
-      content: commandText,
-      isAiGenerated: false,
-      createdAt: new Date().toISOString(),
-    };
+    // 文字型技能：真正发给角色，由角色用自己的口吻回复（并存进聊天记录）
+    if (skill.skillType !== "tarot" && skill.skillType !== "call" && !isTarotSkill(skill.id) && !isCallSkill(skill.id)) {
+      void postChat(commandText, skill.id);
+      return;
+    }
+
+    const userMsg = localMessage("user", commandText);
     setMessages((prev) => [...prev, userMsg]);
     pinToBottom();
 
@@ -237,21 +236,6 @@ export function ChatThread({
       return;
     }
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `skill-reply-${Date.now()}`,
-        role: "assistant",
-        content: getSkillReplyOrFallback(
-          characterSlug,
-          skill.id,
-          skill.name,
-          characterName,
-        ),
-        isAiGenerated: true,
-        createdAt: new Date().toISOString(),
-      },
-    ]);
   }
 
   async function sendMessage(e: React.FormEvent) {
@@ -281,6 +265,11 @@ export function ChatThread({
     }
 
     setInput("");
+    await postChat(userText);
+  }
+
+  /** 发送一条消息给角色；skillId 存在时以技能方式发送 */
+  async function postChat(userText: string, skillId?: string) {
     setLoading(true);
     pinToBottom();
 
@@ -297,7 +286,7 @@ export function ChatThread({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterId, message: userText }),
+        body: JSON.stringify({ characterId, message: userText, ...(skillId ? { skillId } : {}) }),
       });
 
       const data = await res.json();
@@ -510,7 +499,12 @@ export function ChatThread({
         {messages.length === 0 && !showTarotGame && !initialGreeting && (
           <p className="py-8 text-center text-sm text-[#b0a099]">最初の一言を送ってみよう</p>
         )}
-        {messages.map((msg) => (
+        {messages.map((msg) =>
+          msg.role === "system" ? (
+            <p key={msg.id} className="self-center rounded-full bg-black/5 px-3 py-1 text-[12px] text-[#8a7a72]">
+              {msg.content}
+            </p>
+          ) : (
           <div
             key={msg.id}
             className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
@@ -532,7 +526,8 @@ export function ChatThread({
               <span className="whitespace-pre-wrap">{msg.content}</span>
             </div>
           </div>
-        ))}
+          ),
+        )}
         {showTarotGame && (
           <div className="flex justify-center py-2">
             <TarotGame

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateWithLora } from "@/lib/ai/pipeline";
 import { z } from "zod";
-import { FailClosedError, isDemoMode } from "@/lib/runtime";
+import { FailClosedError } from "@/lib/runtime";
 import { enforceRateLimit, failClosedResponse } from "@/lib/security/rate-limit";
 
 const schema = z.object({
@@ -13,8 +13,6 @@ const schema = z.object({
   weight: z.number().min(0.1).max(1.5).optional(),
   steps: z.number().int().min(10).max(50).optional(),
   batch: z.number().int().min(1).max(4).optional(),
-  allowDemo: z.boolean().optional(),
-  coverUrl: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -42,15 +40,14 @@ export async function POST(request: Request) {
     if (!character || character.creatorId !== session.user.id) {
       return NextResponse.json({ error: "権限がありません" }, { status: 403 });
     }
-    const allowDemo = isDemoMode() && Boolean(parsed.allowDemo);
-    if (character.loraStatus !== "READY" && !allowDemo) {
+    if (character.loraStatus !== "READY") {
       return NextResponse.json(
         { error: "LoRA 尚未就绪，请先完成训练" },
         { status: 400 },
       );
     }
 
-    const result = await generateWithLora({ ...parsed, allowDemo });
+    const result = await generateWithLora(parsed);
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof FailClosedError) {

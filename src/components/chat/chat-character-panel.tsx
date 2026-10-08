@@ -21,7 +21,7 @@ export type ChatCharacterPanelData = {
   postCount: number;
   creatorName: string;
   creatorId?: string;
-  liveStatus: LiveStatus;
+  liveStatus: LiveStatus | null;
   dailyMedia: DailyMediaItem[];
   dayPeriod: DayPeriod;
   bond?: BondSnapshot | null;
@@ -39,12 +39,14 @@ export function ChatCharacterPanel({ character, basePath = "" }: ChatCharacterPa
 
   return (
     <div className="h-full overflow-y-auto bg-[#fbf4f1]">
-      <CharacterLiveStatusPanel
-        variant="sidebar"
-        liveStatus={character.liveStatus}
-        dailyMedia={character.dailyMedia}
-        dayPeriod={character.dayPeriod}
-      />
+      {character.liveStatus && (
+        <CharacterLiveStatusPanel
+          variant="sidebar"
+          liveStatus={character.liveStatus}
+          dailyMedia={character.dailyMedia}
+          dayPeriod={character.dayPeriod}
+        />
+      )}
 
       <div className="border-t border-[rgba(120,72,54,0.08)] bg-white px-4 pb-4 pt-3">
         <h2 className="font-display text-[20px] font-black leading-tight text-[#3a3330]">

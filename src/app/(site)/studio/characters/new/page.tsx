@@ -10,11 +10,11 @@ export default function NewCharacterPage() {
   const [form, setForm] = useState({
     name: "",
     tagline: "",
-    avatarUrl: "/characters/aoi/avatar.png",
+    avatarUrl: "/characters/default-avatar.png",
     bio: "",
     personality: "",
     speechStyle: "",
-    tags: "校园,治愈",
+    tags: "",
     subscriptionPrice: 980,
     published: true,
   });

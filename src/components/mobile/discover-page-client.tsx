@@ -6,12 +6,12 @@ import Image from "next/image";
 import { MIcon } from "@/components/ui/m-icon";
 import { CharacterImage } from "@/components/ui/character-image";
 import {
-  DISCOVER_ANIME_CATALOG,
   DISCOVER_CATEGORIES,
   DISCOVER_GENDERS,
   formatDiscoverCount,
+  matchesCategory,
+  type DiscoverGender,
   type DiscoverCategoryId,
-  type DiscoverDemoCard,
 } from "@/lib/discover-catalog";
 import { parseTags } from "@/lib/utils";
 import { bustCharacterAssetCache } from "@/lib/character-media";
@@ -30,14 +30,15 @@ type DbCharacter = {
   avatarUrl: string;
   coverUrl: string | null;
   tags: string;
-  _count: { posts: number; subscriptions: number };
+  gender: string | null;
+  /** 给这个角色发过消息的不同用户数 */
+  chatUsers: number;
 };
 
 type DiscoverPageClientProps = {
   basePath: "/h5" | "/app" | "";
   variant?: "mobile" | "web";
   characters: DbCharacter[];
-  includeDemoCatalog?: boolean;
 };
 
 type GridCard = {
@@ -51,9 +52,7 @@ type GridCard = {
   slug: string;
   chats: number;
   tags: string[];
-  source: "db" | "demo";
-  gender: "female" | "male" | "other";
-  category: DiscoverCategoryId;
+  gender: DiscoverGender;
 };
 
 type WantChatItem = {
@@ -88,76 +87,20 @@ function localizeTag(dict: Dictionary, tag: string): string {
   return dict.tags[key] ?? tag;
 }
 
-function categoryMatches(card: GridCard, cat: DiscoverCategoryId): boolean {
-  if (cat === "recommend" || cat === "all") return true;
-  if (cat === "anime") {
-    return (
-      card.category === "anime" ||
-      card.category === "fantasy" ||
-      card.category === "game" ||
-      card.source === "demo" ||
-      card.tags.some((t) =>
-        /anime|fantasy|game|二次元|ファンタジー|ゲーム/i.test(t),
-      )
-    );
-  }
-  return card.category === cat || card.tags.includes(cat);
-}
-
 function dbToCard(c: DbCharacter, basePath: string): GridCard {
-  const tags = parseTags(c.tags);
-  const joined = tags.join(" ");
-  const category: DiscoverCategoryId = /anime|二次元|ゲーム|fantasy|游戏|幻想/i.test(
-    joined,
-  )
-    ? "anime"
-    : /school|校园|学園|高校/i.test(joined)
-      ? "school"
-      : /romance|恋爱|恋愛/i.test(joined)
-        ? "romance"
-        : /healing|治愈|癒し/i.test(joined)
-          ? "healing"
-          : "recommend";
-
   const href = basePath ? `${basePath}/characters/${c.slug}` : `/characters/${c.slug}`;
-  const chatHref = `${href}/chat`;
-  const description = c.bio.slice(0, 90);
-
   return {
     key: `db-${c.id}`,
     href,
-    chatHref,
+    chatHref: `${href}/chat`,
     name: c.name,
     tagline: c.tagline ?? "",
-    description,
+    description: c.bio.slice(0, 90),
     coverUrl: c.coverUrl || c.avatarUrl,
     slug: c.slug,
-    chats: Math.max(c._count.subscriptions * 1200 + c._count.posts * 800, 420),
-    tags,
-    source: "db",
-    gender: "female",
-    category,
-  };
-}
-
-function demoToCard(d: DiscoverDemoCard, basePath: string): GridCard {
-  const href = basePath
-    ? `${basePath}/characters/${d.hrefSlug}`
-    : `/characters/${d.hrefSlug}`;
-  return {
-    key: d.id,
-    href,
-    chatHref: `${href}/chat`,
-    name: d.name,
-    tagline: d.tagline,
-    description: d.description,
-    coverUrl: d.coverUrl,
-    slug: d.hrefSlug,
-    chats: d.chats,
-    tags: d.tags,
-    source: "demo",
-    gender: d.gender,
-    category: d.category === "all" ? "anime" : d.category,
+    chats: c.chatUsers,
+    tags: parseTags(c.tags),
+    gender: c.gender === "male" || c.gender === "female" ? c.gender : "other",
   };
 }
 
@@ -177,7 +120,6 @@ export function DiscoverPageClient({
   basePath,
   variant = "mobile",
   characters,
-  includeDemoCatalog = false,
 }: DiscoverPageClientProps) {
   const { dict } = useLocale();
   const [gender, setGender] = useState<(typeof DISCOVER_GENDERS)[number]["id"]>("all");
@@ -200,18 +142,12 @@ export function DiscoverPageClient({
     }
   }, []);
 
-  const allCards = useMemo(() => {
-    const fromDb = characters.map((c) => dbToCard(c, basePath));
-    const fromDemo = includeDemoCatalog
-      ? DISCOVER_ANIME_CATALOG.map((d) => demoToCard(d, basePath))
-      : [];
-    return [...fromDb, ...fromDemo];
-  }, [characters, basePath, includeDemoCatalog]);
+  const allCards = useMemo(() => characters.map((c) => dbToCard(c, basePath)), [characters, basePath]);
 
   const filtered = useMemo(() => {
     return allCards.filter((card) => {
       if (gender !== "all" && card.gender !== gender) return false;
-      return categoryMatches(card, category);
+      return matchesCategory(card.tags, category);
     });
   }, [allCards, gender, category]);
 
@@ -398,7 +334,6 @@ function DiscoverPortraitCard({
   onToggleWant: () => void;
 }) {
   const { dict } = useLocale();
-  const cover = bustCharacterAssetCache(card.coverUrl);
   const chatsLabel = formatDiscoverCount(card.chats);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
@@ -435,25 +370,15 @@ function DiscoverPortraitCard({
           }
         }}
       >
-        {card.source === "db" ? (
-          <CharacterImage
-            slug={card.slug}
-            src={card.coverUrl}
-            alt={card.name}
-            variant="cover"
-            fill
-            sizes="(max-width:640px) 50vw, (max-width:1024px) 25vw, 280px"
-            className="transition duration-300 group-hover:scale-[1.03]"
-          />
-        ) : (
-          <Image
-            src={cover}
-            alt={card.name}
-            fill
-            sizes="(max-width:640px) 50vw, (max-width:1024px) 25vw, 280px"
-            className="object-cover object-top transition duration-300 group-hover:scale-[1.03]"
-          />
-        )}
+        <CharacterImage
+          slug={card.slug}
+          src={card.coverUrl}
+          alt={card.name}
+          variant="cover"
+          fill
+          sizes="(max-width:640px) 50vw, (max-width:1024px) 25vw, 280px"
+          className="transition duration-300 group-hover:scale-[1.03]"
+        />
       </Link>
 
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[rgba(42,30,26,0.88)] via-[rgba(42,30,26,0.18)] to-transparent" />

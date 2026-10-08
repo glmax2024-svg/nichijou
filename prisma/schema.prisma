@@ -77,6 +77,11 @@ model User {
   inviteCodeId      String?
   inviteCode        InviteCode?    @relation(fields: [inviteCodeId], references: [id], onDelete: SetNull)
   mediaAssets       MediaAsset[]
+  /// 金币余额（目前没有充值，注册时发放初始金币）。只能通过 src/lib/coins.ts 变更，保证与流水一致
+  coinBalance       Int            @default(0)
+  /// 上次打开通知页的时间；晚于它的通知算未读
+  notificationsSeenAt DateTime?
+  coinTransactions  CoinTransaction[]
 }
 
 model Account {
@@ -128,6 +133,8 @@ model Character {
   worldRules        String         @default("") @db.Text
   brandVoice        String         @default("") @db.Text
   boundaries        String         @default("") @db.Text
+  /// 第一次聊天时角色说的第一句话（按人设与口吻撰写）；为空时使用通用开场白
+  greeting          String         @default("") @db.Text
   contentRating     String         @default("ALL")
   personaVersion    Int            @default(1)
   triggerWord       String?
@@ -156,8 +163,17 @@ model Character {
   personaRevisions  PersonaRevision[]
   bonds             CharacterBond[]
   creatorShareBps   Int?
+  /// 从外部 LoRA 目录导入时的角色基名（如 emilia_re_zero），导入脚本据此判断是否已导入
+  /// female | male | other —— 发现页按性别筛选
+  gender            String?
+  catalogLoraBase   String?
+  /// original = 原创；existing = 现有作品角色；null = 来源未确认。非原创角色上线前需要确认授权
+  ipOrigin          String?
+  ipSourceWork      String?
   earnings          CreatorEarning[]
   mediaAssets       MediaAsset[]
+
+  @@index([catalogLoraBase])
 }
 
 model Post {
@@ -624,4 +640,23 @@ model PendingRemoteDeletion {
   lastError   String?  @db.Text
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+/// 金币流水。每一笔余额变化都对应一条记录，balanceAfter 便于对账。
+model CoinTransaction {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// 正数为收入，负数为支出
+  delta        Int
+  balanceAfter Int
+  /// signup_bonus | gift | admin_adjust ...
+  reason       String
+  /// 关联对象（如礼物 id），用于幂等与追溯
+  refType      String?
+  refId        String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@unique([reason, refType, refId])
 }

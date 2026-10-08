@@ -41,6 +41,12 @@ export async function getTrendingCharacters(limit = 5) {
   });
 }
 
+/** 日本时间今天 0 点（UTC 时刻） */
+export function startOfTodayJst(now = Date.now()): Date {
+  const JST = 9 * 3600_000;
+  return new Date(Math.floor((now + JST) / 86_400_000) * 86_400_000 - JST);
+}
+
 export function formatTimeAgo(date: Date) {
   const sec = Math.floor((Date.now() - date.getTime()) / 1000);
   if (sec < 60) return "たった今";

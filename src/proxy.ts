@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { decode } from "@auth/core/jwt";
+import { prisma } from "@/lib/prisma";
 
 const SESSION_COOKIES = ["__Secure-authjs.session-token", "authjs.session-token"] as const;
 
@@ -20,6 +21,22 @@ function isInviteOnly() {
   return process.env.NICHIJOU_INVITE_ONLY?.trim().toLowerCase() !== "false";
 }
 
+/**
+ * JWT 解得开不代表账号还在（被删的账号 token 仍然有效）。在这里核对一次，
+ * 结果缓存 5 分钟，避免每个请求都查库。与 auth.ts 里 jwt 回调的核对间隔一致。
+ */
+const ACCOUNT_CACHE_MS = 5 * 60_000;
+const accountCache = new Map<string, { exists: boolean; at: number }>();
+
+async function accountExists(userId: string): Promise<boolean> {
+  const hit = accountCache.get(userId);
+  if (hit && Date.now() - hit.at < ACCOUNT_CACHE_MS) return hit.exists;
+  const exists = Boolean(await prisma.user.findUnique({ where: { id: userId }, select: { id: true } }));
+  if (accountCache.size > 5000) accountCache.clear();
+  accountCache.set(userId, { exists, at: Date.now() });
+  return exists;
+}
+
 /** 真正解密校验 JWT —— 只看 cookie 在不在的话，随便塞一个假 cookie 就能绕过 */
 async function hasValidSession(request: NextRequest): Promise<boolean> {
   const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
@@ -30,7 +47,8 @@ async function hasValidSession(request: NextRequest): Promise<boolean> {
     try {
       // Auth.js 用 cookie 名作为 salt
       const payload = await decode({ token, secret, salt: name });
-      if (payload?.sub || payload?.id) return true;
+      const userId = (payload?.id ?? payload?.sub) as string | undefined;
+      if (userId) return accountExists(userId);
     } catch {
       // 过期、篡改或密钥更换 → 视为未登录
     }

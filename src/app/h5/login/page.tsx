@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { MobileLoginForm } from "@/components/mobile/mobile-login-form";
-import { isDemoMode } from "@/lib/runtime";
 import { isInviteOnly } from "@/lib/beta/invite";
 
 export default async function H5LoginPage({
@@ -15,7 +14,6 @@ export default async function H5LoginPage({
       <MobileLoginForm
         key={[invite, tab, mode].join("|")}
         legalBasePath="/h5"
-        showDemoHints={isDemoMode()}
         inviteOnly={isInviteOnly()}
       />
     </Suspense>

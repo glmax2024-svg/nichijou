@@ -151,6 +151,7 @@ const en: Dictionary = {
     copyTrigger: "Copy trigger",
     allCount: "All ({n})",
     trainedHere: "Trained in this studio",
+    libraryEmpty: "No trained LoRAs yet. Create one in the LoRA training tab.",
     trainDesc: "Artist adapter for “{name}”. Injected automatically into chat and daily generation.",
     trainSteps: ["Setup", "Dataset", "Recipe", "Confirm"],
     recipeSimple: "Character · simple",
@@ -179,7 +180,9 @@ const en: Dictionary = {
     recipeTitle: "Training recipe",
     recipeHint: "Pick a preset, then fine-tune parameters.",
     confirmTitle: "Confirm & start training",
-    confirmHint: "Start when ready. Demo mode simulates progress.",
+    confirmHint: "Start when ready.",
+    trainUnavailable: "Training isn't available yet. Please try again later.",
+    trainStatusFailed: "Couldn't load training status. Please refresh.",
     imageCount: "Images",
     imageCountValue: "{n}",
     estSteps: "Est. steps",
@@ -262,7 +265,8 @@ const en: Dictionary = {
     demoPreview: "Demo · voice-clone call preview",
   },
   chat: {
-    missedCall: "{name}: Looks like you missed it… Call again whenever you want to talk.",
+    callEnded: "Call ended · {duration}",
+    callMissed: "Call not connected",
   },
   creator: {
     brandChain: "Artist × Official characters · brand loop",

@@ -149,6 +149,7 @@ const zhHant: Dictionary = {
     copyTrigger: "複製 Trigger",
     allCount: "全部 ({n})",
     trainedHere: "本工作室訓練",
+    libraryEmpty: "還沒有訓練完成的 LoRA，可以在「LoRA 訓練」分頁建立。",
     trainDesc: "畫師為「{name}」訓練的專屬 adapter。對話與日常生成會自動注入此權重。",
     trainSteps: ["設定", "數據集", "配方", "確認"],
     recipeSimple: "角色 · 簡潔",
@@ -177,7 +178,9 @@ const zhHant: Dictionary = {
     recipeTitle: "訓練配方",
     recipeHint: "可先選預設，再微調參數。",
     confirmTitle: "確認並開始訓練",
-    confirmHint: "檢查無誤後啟動。演示環境會模擬進度。",
+    confirmHint: "檢查無誤後啟動。",
+    trainUnavailable: "訓練服務尚未開放，請稍後再試。",
+    trainStatusFailed: "無法讀取訓練狀態，請重新整理頁面。",
     imageCount: "圖片數",
     imageCountValue: "{n} 張",
     estSteps: "預估 steps",
@@ -260,7 +263,8 @@ const zhHant: Dictionary = {
     demoPreview: "Demo · 語音克隆通話預覽",
   },
   chat: {
-    missedCall: "{name}：沒接通呢… 想聊的時候隨時再打過來。",
+    callEnded: "通話結束 · {duration}",
+    callMissed: "通話未接通",
   },
   creator: {
     brandChain: "畫師 × Official 角色 · 品牌鏈路",

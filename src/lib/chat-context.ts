@@ -13,7 +13,7 @@ export type ChatContextData = {
 
 export async function getChatContext(
   userId: string,
-  character: { id: string; slug: string; name: string },
+  character: { id: string; slug: string; name: string; greeting?: string | null },
   opts?: { postId?: string | null; messageCount?: number },
 ): Promise<ChatContextData> {
   const [memories, post, bond] = await Promise.all([
@@ -43,7 +43,7 @@ export async function getChatContext(
   const hasMessages = (opts?.messageCount ?? 0) > 0;
   const initialGreeting = hasMessages
     ? null
-    : buildFirstGreeting(character.slug, character.name, memoryHints, postContext);
+    : buildFirstGreeting(character, postContext);
 
   return {
     memoryHints,

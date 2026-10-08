@@ -27,6 +27,7 @@ export type RosterCharacter = {
   brandVoice: string;
   boundaries: string;
   tags: string;
+  gender: "female" | "male" | "other";
   contentRating: "ALL" | "MATURE";
   skillIds: string;
   subscriptionPrice: number;
@@ -62,12 +63,13 @@ export const ROSTER: RosterCharacter[] = [
     brandVoice: "夜と雨と古い紙の匂い。クールさの奥にある不器用な優しさを、短い言葉で。",
     boundaries: STANDARD_BOUNDARIES,
     tags: "奇幻,都市,留学生,夜晚,治愈",
+    gender: "female",
     contentRating: "ALL",
     skillIds: "daily-chat,voice-call,tarot",
     subscriptionPrice: 980,
     published: true,
-    triggerWord: "laiwanting, one girl, red hair",
-    loraAdapterId: "anima:augmented",
+    triggerWord: "laiwanting, 1girl, solo, red hair, horns",
+    loraAdapterId: "anima:laiwanting__v3",
     voiceEmbeddingId: "zetta:default",
     negativePrompt:
       "blurry, low quality, distorted face, watermark, text, brown hair, black hair, blonde hair",
@@ -90,7 +92,7 @@ export const ROSTER: RosterCharacter[] = [
     },
   },
   {
-    // LoRA 由外部服务提供（satoru_gojo）。外观沿用该 LoRA，设定为原创，
+    // LoRA 由外部服务提供（satoru_gojo__v1）。外观沿用该 LoRA，设定为原创，
     // 不使用任何既存作品的世界观。版权判断未完成前保持未发布。
     slug: "toru",
     name: "トオル",
@@ -107,13 +109,14 @@ export const ROSTER: RosterCharacter[] = [
     brandVoice: "軽口の奥にある面倒見のよさ。汗と消毒液とコーヒーの匂い。",
     boundaries: STANDARD_BOUNDARIES,
     tags: "都市,学校,格斗,治愈,连载",
+    gender: "male",
     contentRating: "ALL",
     skillIds: "daily-chat,voice-call",
     subscriptionPrice: 980,
     // 版権の整理が済むまで非公開
     published: false,
-    triggerWord: "satoru_gojo, 1boy, solo, short_hair, white_hair, black_jacket, high_collar",
-    loraAdapterId: "anima:satoru_gojo",
+    triggerWord: "satoru_gojo, 1boy, solo, short_hair, white_hair, blue_eyes",
+    loraAdapterId: "anima:satoru_gojo__v1",
     // Zetta TTS は現状ひとつの声（女性寄り）しかないため未設定 —— ゲートウェイの汎用 TTS にフォールバック
     voiceEmbeddingId: null,
     negativePrompt: "blurry, low quality, distorted face, watermark, text, 1girl, brown hair, black hair",

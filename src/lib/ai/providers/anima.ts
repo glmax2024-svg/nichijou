@@ -54,7 +54,7 @@ function snap16(n: number): number {
 
 type GenerateResponse = { id: string; image_url: string; seed?: number; triggerWord?: string };
 
-async function generateOne(params: {
+async function generateOnce(params: {
   lora: string;
   prompt: string;
   negativePrompt?: string;
@@ -104,6 +104,23 @@ async function generateOne(params: {
   };
 }
 
+/** 网关偶发 502/503/504（GPU 机器经隧道接入），以及网络抖动，重试两次 */
+const RETRYABLE = /Anima (generate|image fetch) error: 50[234]\b|fetch failed|aborted|timeout/i;
+
+async function generateOne(params: Parameters<typeof generateOnce>[0]): Promise<AnimaImage> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await generateOnce(params);
+    } catch (err) {
+      lastErr = err;
+      if (!(err instanceof Error) || !RETRYABLE.test(err.message) || attempt === 2) throw err;
+      await new Promise((r) => setTimeout(r, 2000 * 2 ** attempt));
+    }
+  }
+  throw lastErr;
+}
+
 /** 服务一次只出一张图；按 batch 串行调用，避免单卡排队互相拖慢。 */
 export async function generateAnimaImages(params: {
   lora: string;
@@ -144,4 +161,33 @@ export async function getAnimaLora(id: string): Promise<AnimaLoraInfo | null> {
   if (!res.ok) throw new Error(`Anima loras error: ${res.status}`);
   const data = (await res.json()) as { loras?: AnimaLoraInfo[] };
   return data.loras?.find((l) => l.id === id) ?? null;
+}
+
+/** 生图目录里的全部固定版本（默认不含别名） */
+export async function listAnimaLoras(): Promise<(AnimaLoraInfo & { character?: string; revision?: number })[]> {
+  if (!ANIMA_API_URL || !ANIMA_API_KEY) throw new Error("ANIMA_API_URL / ANIMA_API_KEY not configured");
+  const res = await fetch(`${ANIMA_API_URL}/loras`, { headers: headers(), redirect: "error", signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`Anima loras error: ${res.status}`);
+  return ((await res.json()) as { loras?: (AnimaLoraInfo & { character?: string; revision?: number })[] }).loras ?? [];
+}
+
+export type AnimaManifestEntry = {
+  lora_id: string;
+  name: string;
+  gender: "female" | "male" | string;
+  /** original | existing | null（来源未确认） */
+  origin: string | null;
+  originVerified?: boolean;
+  source_work: string | null;
+  notes?: string;
+  recommendedPromptPrefix?: string;
+};
+
+/** 正式角色清单（名字、性别、来源），按 lora_id 与目录关联 */
+export async function getAnimaManifest(): Promise<AnimaManifestEntry[]> {
+  if (!ANIMA_API_URL || !ANIMA_API_KEY) throw new Error("ANIMA_API_URL / ANIMA_API_KEY not configured");
+  const res = await fetch(`${ANIMA_API_URL}/loras/manifest`, { headers: headers(), redirect: "error", signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`Anima manifest error: ${res.status}`);
+  const data = (await res.json()) as AnimaManifestEntry[] | { entries: AnimaManifestEntry[] };
+  return Array.isArray(data) ? data : data.entries;
 }
