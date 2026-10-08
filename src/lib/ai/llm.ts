@@ -35,6 +35,8 @@ type GenerateParams = {
   skillPrompt?: string | null;
   /** 「いまの様子」 */
   currentStatus?: string | null;
+  /** 判断回复语言用的原文；userMessage 被包装过（如评论回复）时传用户原话 */
+  languageSource?: string;
 };
 
 export async function generateWithPersona(params: GenerateParams): Promise<string> {
@@ -134,7 +136,7 @@ function buildMessages(params: GenerateParams, scene: AiScene): GatewayMessage[]
     systemPrompt += `\n\n## 今回の依頼（スキル）\n${params.skillPrompt}`;
   }
   // 放在最后：回复语言跟随用户这句话
-  systemPrompt += replyLanguageInstruction(userMessage);
+  systemPrompt += replyLanguageInstruction(params.languageSource ?? userMessage);
 
   const recentHistory =
     config.historyMessages > 0
