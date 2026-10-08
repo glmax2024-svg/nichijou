@@ -14,7 +14,8 @@ import { formatMemoriesForPrompt } from "./memos-plugin";
 import { runSceneChat, getSceneConfig, type AiScene } from "./model-router";
 import type { GatewayMessage } from "./gateway";
 import { FailClosedError } from "@/lib/runtime";
-import { buildPersonaSystemPrompt } from "@/lib/agent/prompt";
+import { buildPersonaSystemPrompt, NO_ACTION_RULE, replyLanguageInstruction } from "@/lib/agent/prompt";
+import { stripStageDirections } from "@/lib/agent/stage-directions";
 import type { BondSnapshot } from "@/lib/agent/bond-display";
 
 const LORA_INFERENCE_URL = process.env.LORA_INFERENCE_API_URL;
@@ -44,7 +45,7 @@ export async function generateWithPersona(params: GenerateParams): Promise<strin
   // 1. 自建 LoRA 推理优先 —— 自有算力，且人设一致性最好
   if (params.loraConfig && LORA_INFERENCE_URL && !parseAnimaAdapter(params.loraConfig.adapterId)) {
     try {
-      return await generateViaLoraInference(params, messages, config.maxTokens);
+      return stripStageDirections(await generateViaLoraInference(params, messages, config.maxTokens));
     } catch (err) {
       console.error("[llm] LoRA inference failed, falling back to gateway:", err);
     }
@@ -58,7 +59,7 @@ export async function generateWithPersona(params: GenerateParams): Promise<strin
       userId: params.userId,
       characterId: params.character.id,
     });
-    return result.text;
+    return stripStageDirections(result.text);
   } catch (err) {
     // 不再用固定文案冒充角色回复：服务不可用就如实报错
     console.error("[llm] gateway failed:", err);
@@ -132,6 +133,8 @@ function buildMessages(params: GenerateParams, scene: AiScene): GatewayMessage[]
   if (params.skillPrompt) {
     systemPrompt += `\n\n## 今回の依頼（スキル）\n${params.skillPrompt}`;
   }
+  // 放在最后：回复语言跟随用户这句话
+  systemPrompt += replyLanguageInstruction(userMessage);
 
   const recentHistory =
     config.historyMessages > 0
@@ -168,12 +171,11 @@ ${buildPersonaSystemPrompt({ character, memoryBlock: "（なし）", loraAugment
         { role: "user", content: "今日の日常投稿を書いて" },
       ],
     });
-    if (result.text) return result.text;
+    if (result.text) return stripStageDirections(result.text);
   } catch (err) {
     console.error("[llm] post draft failed:", err);
   }
-
-  return "今日もいい天気。放課後、友達とカフェに行く予定✨";
+  throw new FailClosedError("下書きを生成できませんでした。少し時間をおいて試してください", "AI_GATEWAY_UNAVAILABLE");
 }
 
 export async function generateVoiceText(
@@ -196,17 +198,18 @@ export async function generateVoiceText(
       messages: [
         {
           role: "system",
-          content: `キャラクター「${character.name}」として。性格: ${character.personality}。話し方: ${character.speechStyle}`,
+          // 这段台词会交给日语 TTS 朗读：固定日语、只要台词
+          content: `キャラクター「${character.name}」として。性格: ${character.personality}。話し方: ${character.speechStyle}
+- 自然な日本語のセリフだけを書く（中国語や英語を混ぜない）
+- ${NO_ACTION_RULE}`,
         },
         { role: "user", content: prompts[orderType] },
       ],
     });
-    if (result.text) return result.text;
+    if (result.text) return stripStageDirections(result.text);
   } catch (err) {
     console.error("[llm] voice text failed:", err);
   }
-
-  return orderType === "WAKE_UP"
-    ? "おはよう！今日も一緒に頑張ろうね。"
-    : "誕生日おめでとう！いつも応援してくれてありがとう。";
+  // 生成失败不扣金币（purchaseOrder 在扣款前调用这里）
+  throw new FailClosedError("セリフを生成できませんでした。コインは消費されていません", "AI_GATEWAY_UNAVAILABLE");
 }

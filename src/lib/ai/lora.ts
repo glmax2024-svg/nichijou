@@ -593,11 +593,11 @@ async function composeGenerationText(
       "lora.caption",
     );
     if (draft) return draft;
-  } catch {
-    /* fall through */
+  } catch (err) {
+    console.error("[lora] caption generation failed:", err);
   }
-
-  return `${character.name}の今日：${prompt.slice(0, 48)}… この感じ、ちゃんと残しておきたくて。`;
+  // 配文只是附带的：生成失败就留空，不编一句假的，也不影响出图
+  return "";
 }
 
 /**
