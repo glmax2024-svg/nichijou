@@ -28,11 +28,26 @@ export async function recordBondInteraction(input: {
   type: BondEventType;
   summary: string;
   delta: number;
+  requestId?: string;
 }): Promise<BondSnapshot> {
   const summary = input.summary.replace(/\s+/g, " ").trim().slice(0, 180);
   const existing = await prisma.characterBond.findUnique({
     where: { userId_characterId: { userId: input.userId, characterId: input.characterId } },
   });
+
+  if (input.requestId && existing) {
+    const existingEvent = await prisma.characterBondEvent.findUnique({
+      where: { bondId_requestId: { bondId: existing.id, requestId: input.requestId } },
+    });
+    if (existingEvent) {
+      return {
+        intimacy: existing.intimacy,
+        stage: existing.stage,
+        turnCount: existing.turnCount,
+        summary: existing.summary,
+      };
+    }
+  }
 
   const intimacy = Math.max(0, Math.min(100, (existing?.intimacy ?? 0) + input.delta));
   const stage = stageFromIntimacy(intimacy);
@@ -50,7 +65,7 @@ export async function recordBondInteraction(input: {
       summary: rolled,
       lastUserMessage: input.type === "chat" ? summary : "",
       events: {
-        create: { type: input.type, summary, deltaIntimacy: input.delta },
+        create: { type: input.type, summary, deltaIntimacy: input.delta, requestId: input.requestId ?? null },
       },
     },
     update: {
@@ -60,7 +75,7 @@ export async function recordBondInteraction(input: {
       summary: rolled,
       lastUserMessage: input.type === "chat" ? summary : existing?.lastUserMessage,
       events: {
-        create: { type: input.type, summary, deltaIntimacy: input.delta },
+        create: { type: input.type, summary, deltaIntimacy: input.delta, requestId: input.requestId ?? null },
       },
     },
   });
@@ -79,6 +94,5 @@ export function formatBondForPrompt(bond: BondSnapshot | null): string {
   }
   return `段階: ${bondStageLabel(bond.stage)}（${bond.stage}）
 親密度: ${bond.intimacy}/100
-会話回数: ${bond.turnCount}
-最近: ${bond.summary || "（なし）"}`;
+会話回数: ${bond.turnCount}`;
 }

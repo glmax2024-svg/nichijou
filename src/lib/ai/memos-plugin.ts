@@ -1,34 +1,23 @@
 /**
- * Memos 强制记忆插件
- *
- * 每次对话前 MUST query — 检索用户×角色的永久记忆
- * 每次对话后 MUST store — 写入新记忆供后续检索
- *
- * 生产环境对接 Memos API；未配置时降级到本地 CharacterMemory 表
+ * PostgreSQL 永久记忆插件。
+ * 每次对话前查询 user × character 记忆，对话后写入去重后的新记忆。
  */
 
+import { createHash } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import type { MemoryEntry } from "./types";
 import { MEMOS_QUERY_TOP_K } from "./types";
+import {
+  MEMORY_RELEVANCE_THRESHOLD,
+  sanitizeMemoryText,
+  scoreMemoryRelevance,
+} from "./memory-retrieval";
 
-const MEMOS_API_URL = process.env.MEMOS_API_URL;
-const MEMOS_API_KEY = process.env.MEMOS_API_KEY;
+const MEMORY_CANDIDATE_LIMIT = 200;
+const CONVERSATION_RETENTION_DAYS = 30;
 
-function memosHeaders(userId: string, characterId?: string) {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    "X-Nichijou-User-Id": userId,
-  };
-  if (characterId) headers["X-Nichijou-Character-Id"] = characterId;
-  if (MEMOS_API_KEY) headers.Authorization = `Bearer ${MEMOS_API_KEY}`;
-  return headers;
-}
-
-export class MemosQueryRequiredError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "MemosQueryRequiredError";
-  }
+function conversationRetentionCutoff(): Date {
+  return new Date(Date.now() - CONVERSATION_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 }
 
 type QueryParams = {
@@ -44,111 +33,17 @@ type StoreParams = {
   assistantReply: string;
 };
 
-/** Required memory lookup — first pipeline step. */
 export async function mandatoryMemosQuery(params: QueryParams): Promise<MemoryEntry[]> {
-  const { userId, characterId, query } = params;
-
-  if (MEMOS_API_URL && MEMOS_API_KEY) {
-    try {
-      return await queryMemosRemote(userId, characterId, query);
-    } catch (err) {
-      console.error("[memos] remote query failed, falling back to local:", err);
-    }
-  }
-
-  return queryMemosLocal(userId, characterId, query);
+  return queryMemosLocal(params.userId, params.characterId, params.query);
 }
 
-/** Required memory write — final pipeline step. */
 export async function mandatoryMemosStore(params: StoreParams): Promise<boolean> {
-  const { userId, characterId, userMessage, assistantReply } = params;
-
-  if (MEMOS_API_URL && MEMOS_API_KEY) {
-    try {
-      await storeMemosRemote(userId, characterId, userMessage, assistantReply);
-      return true;
-    } catch (err) {
-      console.error("[memos] remote store failed, falling back to local:", err);
-    }
-  }
-
-  await storeMemosLocal(userId, characterId, userMessage, assistantReply);
-  return true;
-}
-
-async function queryMemosRemote(
-  userId: string,
-  characterId: string,
-  query: string,
-): Promise<MemoryEntry[]> {
-  const res = await fetch(`${MEMOS_API_URL}/v1/memory/query`, {
-    method: "POST",
-    headers: memosHeaders(userId, characterId),
-    body: JSON.stringify({
-      user_id: userId,
-      agent_id: characterId,
-      query,
-      top_k: MEMOS_QUERY_TOP_K,
-    }),
-  });
-
-  if (!res.ok) {
-    throw new MemosQueryRequiredError(`Memos query failed: ${res.status}`);
-  }
-
-  const data = (await res.json()) as {
-    memories: { id: string; content: string; category?: string; score?: number }[];
-  };
-
-  return (data.memories ?? []).map((m) => ({
-    id: m.id,
-    content: m.content,
-    category: m.category ?? "general",
-    importance: m.score ?? 0.5,
-    source: "memos" as const,
-  }));
-}
-
-async function storeMemosRemote(
-  userId: string,
-  characterId: string,
-  userMessage: string,
-  assistantReply: string,
-): Promise<void> {
-  const res = await fetch(`${MEMOS_API_URL}/v1/memory/store`, {
-    method: "POST",
-    headers: memosHeaders(userId, characterId),
-    body: JSON.stringify({
-      user_id: userId,
-      agent_id: characterId,
-      messages: [
-        { role: "user", content: userMessage },
-        { role: "assistant", content: assistantReply },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Memos store failed: ${res.status}`);
-  }
-}
-
-/** 删除远程记忆。未配置 Worker 时返回 false。characterId 为空则清该用户全部。 */
-export async function deleteMemosRemote(userId: string, characterId?: string): Promise<boolean> {
-  if (!MEMOS_API_URL || !MEMOS_API_KEY) return false;
-
-  const res = await fetch(`${MEMOS_API_URL}/v1/memory/delete`, {
-    method: "POST",
-    headers: memosHeaders(userId, characterId),
-    body: JSON.stringify({
-      user_id: userId,
-      agent_id: characterId ?? "",
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`Memos delete failed: ${res.status}`);
-  }
+  await storeMemosLocal(
+    params.userId,
+    params.characterId,
+    params.userMessage,
+    params.assistantReply,
+  );
   return true;
 }
 
@@ -157,46 +52,39 @@ async function queryMemosLocal(
   characterId: string,
   query: string,
 ): Promise<MemoryEntry[]> {
-  const keywords = query
-    .split(/\s+/)
-    .filter((w) => w.length > 1)
-    .slice(0, 5);
-
-  const memories = await prisma.characterMemory.findMany({
+  const candidates = await prisma.characterMemory.findMany({
     where: {
       userId,
       characterId,
-      OR: keywords.length
-        ? keywords.map((kw) => ({ content: { contains: kw } }))
-        : undefined,
+      OR: [
+        { category: { not: "conversation" } },
+        { createdAt: { gte: conversationRetentionCutoff() } },
+      ],
     },
     orderBy: [{ importance: "desc" }, { createdAt: "desc" }],
-    take: MEMOS_QUERY_TOP_K,
+    take: MEMORY_CANDIDATE_LIMIT,
   });
 
-  if (memories.length === 0) {
-    return prisma.characterMemory.findMany({
-      where: { userId, characterId },
-      orderBy: { createdAt: "desc" },
-      take: MEMOS_QUERY_TOP_K,
-    }).then((rows) =>
-      rows.map((m) => ({
-        id: m.id,
-        content: m.content,
-        category: m.category,
-        importance: m.importance,
-        source: "local" as const,
-      })),
-    );
-  }
-
-  return memories.map((m) => ({
-    id: m.id,
-    content: m.content,
-    category: m.category,
-    importance: m.importance,
-    source: "local" as const,
-  }));
+  return candidates
+    .map((memory) => ({
+      ...memory,
+      relevance: scoreMemoryRelevance(query, memory.content),
+    }))
+    .filter((memory) => memory.relevance >= MEMORY_RELEVANCE_THRESHOLD)
+    .sort(
+      (a, b) =>
+        b.relevance - a.relevance ||
+        b.importance - a.importance ||
+        b.createdAt.getTime() - a.createdAt.getTime(),
+    )
+    .slice(0, MEMOS_QUERY_TOP_K)
+    .map((memory) => ({
+      id: memory.id,
+      content: memory.content,
+      category: memory.category,
+      importance: memory.importance,
+      source: "local" as const,
+    }));
 }
 
 async function storeMemosLocal(
@@ -205,23 +93,40 @@ async function storeMemosLocal(
   userMessage: string,
   assistantReply: string,
 ): Promise<void> {
-  const extract = extractMemorableFacts(userMessage, assistantReply);
+  const cleanUserMessage = sanitizeMemoryText(userMessage);
+  const cleanAssistantReply = sanitizeMemoryText(assistantReply);
+  const extract = extractMemorableFacts(cleanUserMessage, cleanAssistantReply);
+
+  await prisma.characterMemory.deleteMany({
+    where: {
+      userId,
+      characterId,
+      category: "conversation",
+      createdAt: { lt: conversationRetentionCutoff() },
+    },
+  });
 
   for (const fact of extract) {
-    await prisma.characterMemory.create({
-      data: {
+    const dedupeKey = createHash("sha256").update(fact.content).digest("hex");
+    await prisma.characterMemory.upsert({
+      where: {
+        userId_characterId_dedupeKey: { userId, characterId, dedupeKey },
+      },
+      create: {
         userId,
         characterId,
         content: fact.content,
         category: fact.category,
         source: "local",
         importance: fact.importance,
+        dedupeKey,
       },
+      update: {},
     });
   }
 }
 
-/** Lightweight fact extraction; Memos owns this in production. */
+/** Lightweight fact extraction without another model call. */
 function extractMemorableFacts(
   userMessage: string,
   assistantReply: string,
@@ -251,11 +156,10 @@ function extractMemorableFacts(
 }
 
 export function formatMemoriesForPrompt(memories: MemoryEntry[]): string {
-  if (memories.length === 0) {
-    return "（暂无历史记忆 — 这是新对话）";
-  }
-
-  return memories
-    .map((m, i) => `${i + 1}. [${m.category}] ${m.content}`)
-    .join("\n");
+  return JSON.stringify(
+    memories.map((memory) => ({
+      category: memory.category,
+      content: memory.content,
+    })),
+  );
 }

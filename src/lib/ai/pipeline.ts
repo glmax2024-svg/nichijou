@@ -2,10 +2,10 @@
  * Nichijou AI Pipeline — 对话推理主链路
  *
  * ┌─────────────────────────────────────────────────────────┐
- * │  1. Memos Query (强制)  →  检索用户×角色永久记忆         │
+ * │  1. Memory Query        →  检索用户×角色永久记忆         │
  * │  2. LoRA Resolve        →  加载角色人设 adapter          │
  * │  3. LLM Generate        →  记忆+LoRA 注入后生成回复     │
- * │  4. Memos Store (强制)  →  写入新记忆                    │
+ * │  4. Memory Store + Bond →  去重写入，失败不阻断回复      │
  * └─────────────────────────────────────────────────────────┘
  */
 
@@ -25,7 +25,7 @@ export async function runChatPipeline(input: ChatPipelineInput): Promise<ChatPip
     isCreator: input.isCreator,
   });
 
-  // Step 1: required Memos memory lookup
+  // Step 1: PostgreSQL memory lookup
   const memoriesQueried = await mandatoryMemosQuery({
     userId,
     characterId: character.id,
@@ -48,21 +48,31 @@ export async function runChatPipeline(input: ChatPipelineInput): Promise<ChatPip
     bond,
   });
 
-  // Step 4: required Memos memory write
-  const memoryStored = await mandatoryMemosStore({
-    userId,
-    characterId: character.id,
-    userMessage,
-    assistantReply: reply,
-  });
+  let memoryStored = false;
+  try {
+    memoryStored = await mandatoryMemosStore({
+      userId,
+      characterId: character.id,
+      userMessage,
+      assistantReply: reply,
+    });
+  } catch (error) {
+    console.error("[chat] memory store failed; returning generated reply:", error);
+  }
 
-  const nextBond = await recordBondInteraction({
-    userId,
-    characterId: character.id,
-    type: "chat",
-    summary: userMessage,
-    delta: 1,
-  });
+  let nextBond = bond;
+  try {
+    nextBond = await recordBondInteraction({
+      userId,
+      characterId: character.id,
+      type: "chat",
+      summary: userMessage,
+      delta: 1,
+      requestId: input.requestId,
+    });
+  } catch (error) {
+    console.error("[chat] bond update failed; returning generated reply:", error);
+  }
 
   return {
     reply,

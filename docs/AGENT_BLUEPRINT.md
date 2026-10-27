@@ -31,11 +31,11 @@
 
 | 编号 | 领域 | 问题 | 代码位置 |
 |---|---|---|---|
-| G-1 | 记忆 | 单表 `CharacterMemory`，检索是 `content contains 关键词`，写入靠正则命中「我喜欢／好き／生日」就存一条。没有向量、没有去重、没有冲突消解、没有时间线、没有遗忘。命中不到就退化成「取最近 8 条」。远程 `MEMOS_API_URL` 那条路径是个没有实现的接口契约。 | `src/lib/ai/memos-plugin.ts` → `extractMemorableFacts()` / `queryMemosLocal()` |
+| G-1 | 记忆 | 单表 `CharacterMemory`，按中日文词组/bigram 相关度从最多 200 条候选中召回，无相关结果时不注入。写入仍靠轻量正则，但有内容清理与哈希去重；`conversation` 摘要 30 天过期并清理，稳定事实不过期。仍没有向量、冲突消解和双时间戳。 | `src/lib/ai/memory-retrieval.ts` · `src/lib/ai/memos-plugin.ts` |
 | G-2 | 世界观 | `identity` / `worldRules` / `brandVoice` / `boundaries` 四个字符串字段，每轮全量拼进 system prompt。没有条目化、没有触发条件、没有优先级，多个角色无法共享同一个世界，设定一长就必然挤掉对话历史。 | `src/lib/agent/prompt.ts` → `buildPersonaSystemPrompt()` |
 | G-3 | 技能 | `registerSkill()` 注册的是硬编码 TS 插件，带一个 `cannedReply` 罐头文案。调用靠用户输入 `/skills xxx` 正则匹配。没有参数 schema、没有执行沙箱、模型完全不参与决策，创作者也无法新增。加一个技能 = 改主仓库 + 发版。 | `src/modules/agent/skills/registry.ts` · `src/lib/chat-skill-command.ts` |
 | G-4 | 编排 | 固定四步直线 pipeline，没有 agent loop，工具结果无法回灌重新生成，没有生成后校验。记忆写入同步阻塞在请求路径上，直接抬高每轮延迟。回复整段返回，没有流式。 | `src/lib/ai/pipeline.ts` → `runChatPipeline()` |
-| G-5 | 关系状态 | 亲密度是一个 0–100 的整数，关系摘要是 `[新, 旧].join(" / ").slice(0, 280)` —— 字符串拼接后硬截断。轮次一多，摘要会退化成一串互相矛盾的句子碎片，而它正被注入 prompt 当作「关系事实」。 | `src/lib/agent/relationship.ts` → `recordBondInteraction()` |
+| G-5 | 关系状态 | 亲密度是一个 0–100 的整数，关系摘要仍是 `[新, 旧].join(" / ").slice(0, 280)` 的拼接截断，未结构化。原始摘要已停止注入 system prompt，模型只读取阶段、亲密度和轮数。 | `src/lib/agent/relationship.ts` → `recordBondInteraction()` |
 
 ---
 
