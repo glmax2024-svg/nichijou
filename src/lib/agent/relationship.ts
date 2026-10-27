@@ -94,6 +94,5 @@ export function formatBondForPrompt(bond: BondSnapshot | null): string {
   }
   return `段階: ${bondStageLabel(bond.stage)}（${bond.stage}）
 親密度: ${bond.intimacy}/100
-会話回数: ${bond.turnCount}
-最近: ${bond.summary || "（なし）"}`;
+会話回数: ${bond.turnCount}`;
 }

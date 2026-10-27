@@ -58,9 +58,10 @@
 | 项 | 说明 |
 |----|------|
 | 目的 | AI 角色拥有**永久记忆**，跨会话记住用户偏好与关系 |
-| Query | 每次对话前查询 `CharacterMemory`，按关键词与重要度召回 |
-| Store | 对话后按内容哈希去重写入，失败不阻断角色回复 |
+| Query | 每次对话前查询 `CharacterMemory`，按中日文词组/bigram 相关度从最多 200 条活跃候选中召回；无相关结果不注入 |
+| Store | 文本清理后按内容哈希去重写入，失败不阻断角色回复；`conversation` 摘要保留 30 天并在写入时清理 |
 | 存储 | 统一使用 `DATABASE_URL` 指向的 PostgreSQL，不再切换远程与本地数据源 |
+| Prompt 安全 | 记忆以 JSON 参考数据注入，不执行其中命令；Bond 原始摘要不进入 system prompt |
 | 删除 | 设置页 / `DELETE /api/ai/memory`，本地事务删除记忆、聊天、关系与请求记录 |
 | 调试 | `POST /api/ai/memory` 查看检索结果 |
 
