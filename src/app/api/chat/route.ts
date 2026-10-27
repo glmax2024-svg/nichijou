@@ -61,6 +61,12 @@ export async function POST(request: Request) {
       );
     }
 
+    const history = await prisma.message.findMany({
+      where: { userId: session.user.id, characterId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+    });
+
     const userMessage = await prisma.message.create({
       data: {
         userId: session.user.id,
@@ -70,16 +76,10 @@ export async function POST(request: Request) {
       },
     });
 
-    const history = await prisma.message.findMany({
-      where: { userId: session.user.id, characterId },
-      orderBy: { createdAt: "asc" },
-      take: 20,
-    });
-
     const pipeline = await runChatPipeline({
       userId: session.user.id,
       character,
-      history: history.map((m) => ({
+      history: history.reverse().map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),

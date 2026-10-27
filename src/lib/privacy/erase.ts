@@ -8,6 +8,13 @@ export type EraseCompanionResult = {
   remoteDeleted: boolean;
 };
 
+export class RemoteMemoryEraseError extends Error {
+  constructor() {
+    super("Remote memory deletion failed");
+    this.name = "RemoteMemoryEraseError";
+  }
+}
+
 /** 删除用户与角色之间的聊天、记忆、关系快照。订单/礼物/订阅保留。 */
 export async function eraseCompanionData(
   userId: string,
@@ -15,18 +22,19 @@ export async function eraseCompanionData(
 ): Promise<EraseCompanionResult> {
   const where = characterId ? { userId, characterId } : { userId };
 
-  const [memories, messages, bonds] = await prisma.$transaction([
-    prisma.characterMemory.deleteMany({ where }),
-    prisma.message.deleteMany({ where }),
-    prisma.characterBond.deleteMany({ where }),
-  ]);
-
   let remoteDeleted = false;
   try {
     remoteDeleted = await deleteMemosRemote(userId, characterId);
   } catch (err) {
     console.error("[privacy] remote memory delete failed:", err);
+    throw new RemoteMemoryEraseError();
   }
+
+  const [memories, messages, bonds] = await prisma.$transaction([
+    prisma.characterMemory.deleteMany({ where }),
+    prisma.message.deleteMany({ where }),
+    prisma.characterBond.deleteMany({ where }),
+  ]);
 
   return {
     memories: memories.count,

@@ -99,10 +99,10 @@ export async function ChatWorkspace({
       subscribed = chatAccess.isSubscribed;
       const messageRows = await prisma.message.findMany({
         where: { userId: session.user.id, characterId: character.id },
-        orderBy: { createdAt: "asc" },
+        orderBy: { createdAt: "desc" },
         take: 50,
       });
-      messages = messageRows;
+      messages = messageRows.reverse();
       chatContext = await getChatContext(session.user.id, character, {
         postId: activePostId,
         messageCount: messages.length,
