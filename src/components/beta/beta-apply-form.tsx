@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MIcon } from "@/components/ui/m-icon";
+import { useLocale } from "@/components/i18n/locale-provider";
 
 type FieldName =
   | "nickname"
@@ -16,12 +17,7 @@ type FieldName =
   | "isAdult"
   | "acceptedPrivacy";
 
-const CONTACT_OPTIONS = [
-  { value: "LINE", label: "LINE", placeholder: "LINE ID" },
-  { value: "DISCORD", label: "Discord", placeholder: "Discord ユーザー名" },
-  { value: "X_DM", label: "X の DM", placeholder: "@your_id" },
-  { value: "OTHER", label: "その他", placeholder: "連絡方法と ID" },
-] as const;
+const CONTACT_VALUES = ["LINE", "DISCORD", "X_DM", "OTHER"] as const;
 
 const INTRO_MAX = 1000;
 
@@ -66,13 +62,14 @@ export function BetaApplyForm({
   /** 送信完了後にログインタブへ戻す */
   onBackToLogin?: () => void;
 }) {
+  const { dict } = useLocale();
   const topRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     nickname: "",
     userType: "FAN" as "FAN" | "CREATOR",
     twitter: "",
     pixiv: "",
-    contactType: "LINE" as (typeof CONTACT_OPTIONS)[number]["value"],
+    contactType: "LINE" as (typeof CONTACT_VALUES)[number],
     contactValue: "",
     email: "",
     intro: "",
@@ -83,6 +80,17 @@ export function BetaApplyForm({
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  const contactOptions = useMemo(
+    () =>
+      [
+        { value: "LINE" as const, label: "LINE", placeholder: "LINE ID" },
+        { value: "DISCORD" as const, label: "Discord", placeholder: dict.auth.contactDiscordPlaceholder },
+        { value: "X_DM" as const, label: dict.auth.contactXdm, placeholder: "@your_id" },
+        { value: "OTHER" as const, label: dict.auth.contactOther, placeholder: dict.auth.contactOtherPlaceholder },
+      ] as const,
+    [dict],
+  );
 
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -95,7 +103,7 @@ export function BetaApplyForm({
     e.preventDefault();
     setFormError("");
     if (!form.twitter.trim() && !form.pixiv.trim()) {
-      setErrors({ twitter: "X（Twitter）か pixiv のどちらかを入力してください" });
+      setErrors({ twitter: dict.auth.snsRequired });
       return;
     }
     setLoading(true);
@@ -108,19 +116,19 @@ export function BetaApplyForm({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.field) setErrors({ [data.field as FieldName]: data.error });
-        else setFormError(data.error ?? "送信に失敗しました");
+        else setFormError(data.error ?? dict.auth.submitFailed);
         return;
       }
       setDone(true);
       topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
-      setFormError("通信に失敗しました。時間をおいて再度お試しください");
+      setFormError(dict.auth.networkFailed);
     } finally {
       setLoading(false);
     }
   }
 
-  const contact = CONTACT_OPTIONS.find((o) => o.value === form.contactType)!;
+  const contact = contactOptions.find((o) => o.value === form.contactType)!;
 
   return (
     <div ref={topRef} className="scroll-mt-24">
@@ -129,15 +137,14 @@ export function BetaApplyForm({
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#fff0f2]">
             <MIcon name="mark_email_read" className="text-[30px] text-[#ef7488]" />
           </div>
-          <h2 className="mt-4 font-display text-xl font-black text-[#3a3330]">応募を受け付けました</h2>
+          <h2 className="mt-4 font-display text-xl font-black text-[#3a3330]">{dict.auth.applyDoneTitle}</h2>
           <p className="mx-auto mt-3 max-w-[380px] text-sm leading-relaxed text-[#8a7a72]">
-            内容を確認し、承認された方には
+            {dict.auth.applyDoneBody}
             <br />
-            <span className="font-bold text-[#3a3330]">{form.email}</span> か、
-            ご指定の連絡先に招待コードをお送りします。
+            <span className="font-bold text-[#3a3330]">{form.email}</span> {dict.auth.applyDoneBodyAfter}
           </p>
           <p className="mx-auto mt-3 max-w-[380px] text-[12px] leading-relaxed text-[#b0a099]">
-            内容を修正したい場合は、同じメールアドレスでもう一度応募すると上書きされます。
+            {dict.auth.applyDoneHint}
           </p>
           {onBackToLogin && (
             <button
@@ -145,13 +152,13 @@ export function BetaApplyForm({
               onClick={onBackToLogin}
               className="mt-7 inline-block rounded-[14px] bg-[#f4ece8] px-6 py-3 text-sm font-bold text-[#3a3330] hover:bg-[#efe3dd]"
             >
-              ログインに戻る
+              {dict.auth.backToLogin}
             </button>
           )}
         </div>
       ) : (
         <form onSubmit={handleSubmit} noValidate>
-          <Field label="ニックネーム" error={errors.nickname}>
+          <Field label={dict.auth.nickname} error={errors.nickname}>
             <div className={`${inputBox} ${border("nickname")}`}>
               <MIcon name="person" className="text-[20px] text-[#c2b4ac]" />
               <input
@@ -161,17 +168,17 @@ export function BetaApplyForm({
                 value={form.nickname}
                 onChange={(e) => set("nickname", e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none"
-                placeholder="ゆい"
+                placeholder={dict.auth.displayNamePlaceholder}
               />
             </div>
           </Field>
 
-          <Field label="参加のしかた" error={errors.userType}>
+          <Field label={dict.auth.howToJoin} error={errors.userType}>
             <div className="mt-1.5 grid grid-cols-2 gap-2">
               {(
                 [
-                  { value: "FAN", icon: "favorite", title: "ファン", sub: "キャラと話したい" },
-                  { value: "CREATOR", icon: "brush", title: "絵師", sub: "キャラを作りたい" },
+                  { value: "FAN", icon: "favorite", title: dict.auth.fan, sub: dict.auth.fanSub },
+                  { value: "CREATOR", icon: "brush", title: dict.auth.creator, sub: dict.auth.creatorSub },
                 ] as const
               ).map((opt) => {
                 const active = form.userType === opt.value;
@@ -203,7 +210,8 @@ export function BetaApplyForm({
 
           <div className="mt-6 rounded-[18px] bg-[#fbf7f5] p-4">
             <p className="text-xs font-bold text-[#8a7a72]">
-              SNS のプロフィール<span className="ml-1.5 font-normal text-[#b0a099]">どちらか一つは必須</span>
+              {dict.auth.snsTitle}
+              <span className="ml-1.5 font-normal text-[#b0a099]">{dict.auth.snsOneRequired}</span>
             </p>
             <Field label="" error={errors.twitter}>
               <div className={`${inputBox} bg-white ${border("twitter")}`}>
@@ -213,7 +221,7 @@ export function BetaApplyForm({
                   value={form.twitter}
                   onChange={(e) => set("twitter", e.target.value)}
                   className="flex-1 bg-transparent text-sm outline-none"
-                  placeholder="@your_id または x.com/your_id"
+                  placeholder={dict.auth.twitterPlaceholder}
                   autoCapitalize="off"
                   spellCheck={false}
                 />
@@ -235,15 +243,15 @@ export function BetaApplyForm({
             </Field>
           </div>
 
-          <Field label="連絡先" hint="メールが届かない場合に使います" error={errors.contactValue}>
+          <Field label={dict.auth.contact} hint={dict.auth.contactHint} error={errors.contactValue}>
             <div className="mt-1.5 flex gap-2">
               <select
                 value={form.contactType}
                 onChange={(e) => set("contactType", e.target.value as typeof form.contactType)}
                 className="rounded-[14px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-3 text-sm font-bold text-[#3a3330] outline-none focus:border-[#ef7488]"
-                aria-label="連絡方法"
+                aria-label={dict.auth.contactMethod}
               >
-                {CONTACT_OPTIONS.map((o) => (
+                {contactOptions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
@@ -265,7 +273,7 @@ export function BetaApplyForm({
             </div>
           </Field>
 
-          <Field label="メールアドレス" hint="招待コードはこのアドレスでのみ使えます" error={errors.email}>
+          <Field label={dict.auth.email} hint={dict.auth.emailHint} error={errors.email}>
             <div className={`${inputBox} ${border("email")}`}>
               <MIcon name="mail" className="text-[20px] text-[#c2b4ac]" />
               <input
@@ -280,7 +288,7 @@ export function BetaApplyForm({
             </div>
           </Field>
 
-          <Field label="自己紹介・応募理由" error={errors.intro}>
+          <Field label={dict.auth.intro} error={errors.intro}>
             <div className={`mt-1.5 rounded-[14px] border bg-[#faf5f2] px-4 py-3 transition focus-within:border-[#ef7488] ${border("intro")}`}>
               <textarea
                 required
@@ -289,11 +297,7 @@ export function BetaApplyForm({
                 value={form.intro}
                 onChange={(e) => set("intro", e.target.value)}
                 className="w-full resize-none bg-transparent text-sm leading-relaxed outline-none"
-                placeholder={
-                  form.userType === "CREATOR"
-                    ? "普段描いているジャンル、作りたいキャラクターのイメージなど"
-                    : "好きなジャンルや作品、AI キャラクターとやってみたいことなど"
-                }
+                placeholder={form.userType === "CREATOR" ? dict.auth.introCreator : dict.auth.introFan}
               />
               <p className="text-right text-[11px] tabular-nums text-[#c2b4ac]">
                 {form.intro.length} / {INTRO_MAX}
@@ -309,7 +313,7 @@ export function BetaApplyForm({
                 onChange={(e) => set("isAdult", e.target.checked)}
                 className="mt-0.5 h-4 w-4 accent-[#ef7488]"
               />
-              18歳以上です
+              {dict.auth.isAdult}
             </label>
             {errors.isAdult && <p className="text-[12px] font-bold text-[#d64a61]">{errors.isAdult}</p>}
             <label className="flex cursor-pointer items-start gap-2.5 text-[13px] text-[#6a4a52]">
@@ -321,9 +325,9 @@ export function BetaApplyForm({
               />
               <span>
                 <Link href="/legal/privacy" target="_blank" className="font-bold text-[#ef7488] underline-offset-2 hover:underline">
-                  プライバシーポリシー
+                  {dict.auth.privacy}
                 </Link>
-                に同意し、審査のために入力内容が利用されることを了承します
+                {dict.auth.privacyAgreeAfter}
               </span>
             </label>
             {errors.acceptedPrivacy && (
@@ -342,14 +346,14 @@ export function BetaApplyForm({
             disabled={loading}
             className="btn-primary mt-6 w-full rounded-[15px] py-3.5 text-[15px] transition hover:opacity-95 disabled:opacity-50"
           >
-            {loading ? "送信中…" : "応募する"}
+            {loading ? dict.auth.sending : dict.auth.applySubmit}
           </button>
 
           {onHaveCode && (
             <p className="mt-4 text-center text-[13px] text-[#8a7a72]">
-              招待コードをお持ちの方は
+              {dict.auth.haveCode}
               <button type="button" onClick={onHaveCode} className="ml-1 font-bold text-[#ef7488] hover:underline">
-                こちらから登録
+                {dict.auth.registerHere}
               </button>
             </p>
           )}

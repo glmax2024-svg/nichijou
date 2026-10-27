@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { MIcon } from "@/components/ui/m-icon";
 import { RegisterComplianceFields } from "@/components/legal/register-compliance-fields";
 import { BetaApplyForm } from "@/components/beta/beta-apply-form";
+import { useLocale } from "@/components/i18n/locale-provider";
 
 type Mode = "login" | "register" | "apply";
 
@@ -20,6 +21,7 @@ export function MobileLoginForm({
   legalBasePath?: "" | "/h5" | "/app";
   inviteOnly?: boolean;
 }) {
+  const { dict } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? defaultCallbackUrl;
@@ -64,7 +66,7 @@ export function MobileLoginForm({
         });
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error ?? "登録に失敗しました");
+          throw new Error(data.error ?? dict.auth.registerFailed);
         }
       }
 
@@ -74,12 +76,12 @@ export function MobileLoginForm({
         redirect: false,
       });
 
-      if (result?.error) throw new Error("ログインに失敗しました");
+      if (result?.error) throw new Error(dict.auth.loginFailed);
 
       router.push(callbackUrl);
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "エラーが発生しました");
+      alert(err instanceof Error ? err.message : dict.auth.genericError);
     } finally {
       setLoading(false);
     }
@@ -98,12 +100,12 @@ export function MobileLoginForm({
           <div className="flex h-[34px] w-[34px] items-center justify-center rounded-xl bg-white shadow-[0_8px_16px_-8px_rgba(239,116,136,0.6)]">
             <MIcon name="favorite" className="text-[22px] text-[#ef7488]" />
           </div>
-          <span className="font-display text-[22px] font-black text-[#3a2a2e]">日常</span>
+          <span className="font-display text-[22px] font-black text-[#3a2a2e]">{dict.common.brand}</span>
         </div>
         <h2 className="relative mt-[22px] font-display text-[23px] font-black leading-[1.4] text-[#3a2a2e]">
-          推しの「日常」を、
+          {dict.auth.heroTitle1}
           <br />
-          あなたのそばに。
+          {dict.auth.heroTitle2}
         </h2>
       </div>
 
@@ -118,7 +120,7 @@ export function MobileLoginForm({
                 : "text-[#8a7a72]"
             }`}
           >
-            ログイン
+            {dict.auth.tabLogin}
           </button>
           <button
             type="button"
@@ -129,7 +131,7 @@ export function MobileLoginForm({
                 : "text-[#8a7a72]"
             }`}
           >
-            {inviteOnly ? "β版に応募" : "新規登録"}
+            {inviteOnly ? dict.auth.tabApply : dict.auth.tabRegister}
           </button>
         </div>
 
@@ -143,7 +145,7 @@ export function MobileLoginForm({
               <>
                 {inviteOnly && (
                   <>
-                    <label className="mt-5 block text-xs font-bold text-[#8a7a72]">招待コード</label>
+                    <label className="mt-5 block text-xs font-bold text-[#8a7a72]">{dict.auth.inviteCode}</label>
                     <div className="mt-1.5 flex items-center gap-2 rounded-[13px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-3.5 py-3">
                       <MIcon name="key" className="text-[19px] text-[#c2b4ac]" />
                       <input
@@ -160,7 +162,7 @@ export function MobileLoginForm({
                     </div>
                   </>
                 )}
-                <label className="mt-5 block text-xs font-bold text-[#8a7a72]">表示名</label>
+                <label className="mt-5 block text-xs font-bold text-[#8a7a72]">{dict.auth.displayName}</label>
                 <div className="mt-1.5 flex items-center gap-2 rounded-[13px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-3.5 py-3">
                   <MIcon name="person" className="text-[19px] text-[#c2b4ac]" />
                   <input
@@ -169,7 +171,7 @@ export function MobileLoginForm({
                     value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     className="flex-1 bg-transparent text-[13.5px] outline-none"
-                    placeholder="ゆい"
+                    placeholder={dict.auth.displayNamePlaceholder}
                   />
                 </div>
                 <RegisterComplianceFields
@@ -182,7 +184,7 @@ export function MobileLoginForm({
               </>
             )}
 
-            <label className="mt-5 block text-xs font-bold text-[#8a7a72]">メールアドレス</label>
+            <label className="mt-5 block text-xs font-bold text-[#8a7a72]">{dict.auth.email}</label>
             <div className="mt-1.5 flex items-center gap-2 rounded-[13px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-3.5 py-3">
               <MIcon name="mail" className="text-[19px] text-[#c2b4ac]" />
               <input
@@ -195,7 +197,7 @@ export function MobileLoginForm({
               />
             </div>
 
-            <label className="mt-3.5 block text-xs font-bold text-[#8a7a72]">パスワード</label>
+            <label className="mt-3.5 block text-xs font-bold text-[#8a7a72]">{dict.auth.password}</label>
             <div className="mt-1.5 flex items-center gap-2 rounded-[13px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-3.5 py-3">
               <MIcon name="lock" className="text-[19px] text-[#c2b4ac]" />
               <input
@@ -221,16 +223,20 @@ export function MobileLoginForm({
               disabled={loading}
               className="btn-primary mt-5 w-full rounded-[15px] py-3.5 text-[15px] shadow-[0_14px_26px_-12px_rgba(239,116,136,0.8)] disabled:opacity-50"
             >
-              {loading ? "処理中…" : mode === "login" ? "ログイン" : "登録する"}
+              {loading
+                ? dict.auth.submitting
+                : mode === "login"
+                  ? dict.auth.submitLogin
+                  : dict.auth.submitRegister}
             </button>
           </form>
         )}
 
         {inviteOnly && mode !== "apply" && (
           <p className="mt-4 text-center text-[12.5px] leading-[1.7] text-[#8a7a72]">
-            {mode === "login" ? "アカウントをお持ちでない方は" : "招待コードをお持ちでない方は"}
+            {mode === "login" ? dict.auth.noAccount : dict.auth.noInvite}
             <button type="button" onClick={() => setMode("apply")} className="ml-1 font-bold text-[#ef7488]">
-              β版に応募
+              {dict.auth.applyBeta}
             </button>
           </p>
         )}

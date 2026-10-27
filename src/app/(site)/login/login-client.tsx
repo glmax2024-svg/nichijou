@@ -8,6 +8,7 @@ import { MIcon } from "@/components/ui/m-icon";
 import { AmbientBg } from "@/components/ui/ambient-bg";
 import { RegisterComplianceFields } from "@/components/legal/register-compliance-fields";
 import { BetaApplyForm } from "@/components/beta/beta-apply-form";
+import { useLocale } from "@/components/i18n/locale-provider";
 
 type Mode = "login" | "register" | "apply";
 
@@ -16,6 +17,7 @@ export default function LoginPageClient({
 }: {
   inviteOnly?: boolean;
 }) {
+  const { dict } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
@@ -61,7 +63,7 @@ export default function LoginPageClient({
         });
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error ?? "登録に失敗しました");
+          throw new Error(data.error ?? dict.auth.registerFailed);
         }
       }
 
@@ -71,16 +73,27 @@ export default function LoginPageClient({
         redirect: false,
       });
 
-      if (result?.error) throw new Error("ログインに失敗しました");
+      if (result?.error) throw new Error(dict.auth.loginFailed);
 
       router.push(callbackUrl);
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "エラーが発生しました");
+      alert(err instanceof Error ? err.message : dict.auth.genericError);
     } finally {
       setLoading(false);
     }
   }
+
+  const heading =
+    mode === "login" ? dict.auth.welcomeBack : mode === "apply" ? dict.auth.applyHeading : dict.auth.hello;
+  const hint =
+    mode === "login"
+      ? dict.auth.loginHint
+      : mode === "apply"
+        ? dict.auth.applyHint
+        : inviteOnly
+          ? dict.auth.registerHintInvite
+          : dict.auth.registerHint;
 
   return (
     <div className="relative min-h-[calc(100vh-64px)]">
@@ -98,23 +111,23 @@ export default function LoginPageClient({
                 <div className="flex h-[38px] w-[38px] items-center justify-center rounded-[13px] bg-white shadow-[0_8px_16px_-8px_rgba(239,116,136,0.6)]">
                   <MIcon name="favorite" className="animate-soft-pulse text-[24px] text-[#ef7488]" />
                 </div>
-                <span className="font-display text-2xl font-black text-[#3a2a2e]">日常</span>
+                <span className="font-display text-2xl font-black text-[#3a2a2e]">{dict.common.brand}</span>
                 {inviteOnly && (
                   <span className="ml-1 rounded-full bg-white/70 px-2.5 py-1 text-[10.5px] font-bold tracking-wide text-[#ef7488]">
-                    CLOSED BETA
+                    {dict.auth.closedBeta}
                   </span>
                 )}
               </div>
               <div className="relative mt-auto">
                 <h2 className="font-display text-[30px] font-black leading-[1.35] text-[#3a2a2e]">
-                  推しの「日常」を、
+                  {dict.auth.heroTitle1}
                   <br />
-                  あなたのそばに。
+                  {dict.auth.heroTitle2}
                 </h2>
                 <p className="mt-3.5 text-sm leading-relaxed text-[#6a4a52]">
-                  画师が創る AI キャラクターと、
+                  {dict.auth.heroBody1}
                   <br />
-                  チャット・ギフト・声で毎日をいっしょに。
+                  {dict.auth.heroBody2}
                 </p>
               </div>
             </div>
@@ -130,7 +143,7 @@ export default function LoginPageClient({
                       : "text-[#8a7a72]"
                   }`}
                 >
-                  ログイン
+                  {dict.auth.tabLogin}
                 </button>
                 <button
                   type="button"
@@ -141,22 +154,12 @@ export default function LoginPageClient({
                       : "text-[#8a7a72]"
                   }`}
                 >
-                  {inviteOnly ? "β版に応募" : "新規登録"}
+                  {inviteOnly ? dict.auth.tabApply : dict.auth.tabRegister}
                 </button>
               </div>
 
-              <h3 className="mt-6 font-display text-[22px] font-black text-[#3a3330]">
-                {mode === "login" ? "おかえりなさい" : mode === "apply" ? "β版テスター募集中" : "はじめまして"}
-              </h3>
-              <p className="mt-1 text-[13px] text-[#b0a099]">
-                {mode === "login"
-                  ? "メールアドレスでログイン"
-                  : mode === "apply"
-                    ? "審査のうえ、招待コードをお送りします"
-                    : inviteOnly
-                      ? "招待コードでアカウントを作成"
-                      : "アカウントを作成"}
-              </p>
+              <h3 className="mt-6 font-display text-[22px] font-black text-[#3a3330]">{heading}</h3>
+              <p className="mt-1 text-[13px] text-[#b0a099]">{hint}</p>
 
               {mode === "apply" ? (
                 <div className="mt-5">
@@ -168,7 +171,7 @@ export default function LoginPageClient({
                     <>
                       {inviteOnly && (
                         <>
-                          <label className="text-xs font-bold text-[#8a7a72]">招待コード</label>
+                          <label className="text-xs font-bold text-[#8a7a72]">{dict.auth.inviteCode}</label>
                           <div className="mb-4 mt-1.5 flex items-center gap-2 rounded-[14px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-4 py-3">
                             <MIcon name="key" className="text-[20px] text-[#c2b4ac]" />
                             <input
@@ -185,7 +188,7 @@ export default function LoginPageClient({
                           </div>
                         </>
                       )}
-                      <label className="text-xs font-bold text-[#8a7a72]">表示名</label>
+                      <label className="text-xs font-bold text-[#8a7a72]">{dict.auth.displayName}</label>
                       <div className="mt-1.5 flex items-center gap-2 rounded-[14px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-4 py-3">
                         <MIcon name="person" className="text-[20px] text-[#c2b4ac]" />
                         <input
@@ -194,7 +197,7 @@ export default function LoginPageClient({
                           value={form.name}
                           onChange={(e) => setForm({ ...form, name: e.target.value })}
                           className="flex-1 bg-transparent text-sm outline-none"
-                          placeholder="ゆい"
+                          placeholder={dict.auth.displayNamePlaceholder}
                         />
                       </div>
                       <RegisterComplianceFields
@@ -206,7 +209,7 @@ export default function LoginPageClient({
                     </>
                   )}
 
-                  <label className="mt-4 text-xs font-bold text-[#8a7a72]">メールアドレス</label>
+                  <label className="mt-4 text-xs font-bold text-[#8a7a72]">{dict.auth.email}</label>
                   <div className="mt-1.5 flex items-center gap-2 rounded-[14px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-4 py-3">
                     <MIcon name="mail" className="text-[20px] text-[#c2b4ac]" />
                     <input
@@ -219,7 +222,7 @@ export default function LoginPageClient({
                     />
                   </div>
 
-                  <label className="mt-4 text-xs font-bold text-[#8a7a72]">パスワード</label>
+                  <label className="mt-4 text-xs font-bold text-[#8a7a72]">{dict.auth.password}</label>
                   <div className="mt-1.5 flex items-center gap-2 rounded-[14px] border border-[rgba(120,72,54,0.1)] bg-[#faf5f2] px-4 py-3">
                     <MIcon name="lock" className="text-[20px] text-[#c2b4ac]" />
                     <input
@@ -245,25 +248,29 @@ export default function LoginPageClient({
                     disabled={loading}
                     className="btn-primary mt-5 w-full rounded-[15px] py-3.5 text-[15px] transition hover:opacity-95 disabled:opacity-50"
                   >
-                    {loading ? "処理中…" : mode === "login" ? "ログイン" : "登録する"}
+                    {loading
+                      ? dict.auth.submitting
+                      : mode === "login"
+                        ? dict.auth.submitLogin
+                        : dict.auth.submitRegister}
                   </button>
                 </form>
               )}
 
               {inviteOnly && mode === "login" && (
                 <p className="mt-5 text-center text-[13px] text-[#8a7a72]">
-                  アカウントをお持ちでない方は
+                  {dict.auth.noAccount}
                   <button type="button" onClick={() => setMode("apply")} className="ml-1 font-bold text-[#ef7488] hover:underline">
-                    β版テスターに応募
+                    {dict.auth.applyAsTester}
                   </button>
                 </p>
               )}
 
               {inviteOnly && mode === "register" && (
                 <p className="mt-4 text-center text-[13px] text-[#8a7a72]">
-                  招待コードをお持ちでない方は
+                  {dict.auth.noInvite}
                   <button type="button" onClick={() => setMode("apply")} className="ml-1 font-bold text-[#ef7488] hover:underline">
-                    β版に応募
+                    {dict.auth.applyBeta}
                   </button>
                 </p>
               )}
@@ -276,7 +283,7 @@ export default function LoginPageClient({
       {!inviteOnly && (
         <div className="relative z-10 pb-8 text-center">
           <Link href="/" className="text-sm text-[#b0a099] hover:text-[#ef7488]">
-            ← トップに戻る
+            {dict.auth.backHome}
           </Link>
         </div>
       )}
