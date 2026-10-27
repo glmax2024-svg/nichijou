@@ -1,5 +1,5 @@
 /**
- * LLM 推理层 — 整合 LoRA 人设 + Memos 记忆注入 system prompt
+ * LLM 推理层 — 整合 LoRA 人设 + PostgreSQL 记忆注入 system prompt
  *
  * 调用优先级（成本从低到高）：
  *   1. 自建 LoRA 推理服务（自有算力，且能保人设）—— 角色 adapter READY 且配置了 URL

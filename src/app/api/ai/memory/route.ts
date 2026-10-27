@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { mandatoryMemosQuery } from "@/lib/ai/pipeline";
-import { eraseCompanionData, RemoteMemoryEraseError } from "@/lib/privacy/erase";
+import { eraseCompanionData } from "@/lib/privacy/erase";
 import { enforceRateLimit } from "@/modules/governance";
 import { z } from "zod";
 
@@ -14,7 +14,7 @@ const eraseSchema = z.object({
   characterId: z.string().optional(),
 });
 
-/** Debug / transparency — inspect memories returned by Memos. */
+/** Debug / transparency — inspect memories returned by PostgreSQL. */
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       count: memories.length,
       memories,
-      note: "Memos 强制查询 — 每次对话前 pipeline 自动执行相同逻辑",
+      note: "PostgreSQL 记忆查询 — 每次对话前 pipeline 自动执行相同逻辑",
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -70,12 +70,6 @@ export async function DELETE(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
-    }
-    if (error instanceof RemoteMemoryEraseError) {
-      return NextResponse.json(
-        { ok: false, error: "リモート記憶を削除できませんでした", code: "REMOTE_MEMORY_ERASE_FAILED" },
-        { status: 503 },
-      );
     }
     return NextResponse.json({ error: "データの削除に失敗しました" }, { status: 500 });
   }

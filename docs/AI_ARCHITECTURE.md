@@ -1,14 +1,14 @@
 # Nichijou AI 底层架构
 
-## 对话 Pipeline（强制四步）
+## 对话 Pipeline（四步）
 
 ```
 用户消息
     │
     ▼
-┌──────────────────────┐
-│ 1. Memos Query (强制) │  ← 检索 user×character 永久记忆
-└──────────┬───────────┘
+┌──────────────────────────┐
+│ 1. PostgreSQL Memory Query │  ← 检索 user×character 永久记忆
+└──────────┬───────────────┘
            ▼
 ┌──────────────────────┐
 │ 2. LoRA Resolve      │  ← 加载角色 adapter（若已训练）
@@ -18,9 +18,9 @@
 │ 3. LLM Generate      │  ← 记忆 + LoRA 注入 system prompt
 └──────────┬───────────┘
            ▼
-┌──────────────────────┐
-│ 4. Memos Store (强制) │  ← 写入新记忆
-└──────────┬───────────┘
+┌──────────────────────────┐
+│ 4. Memory Store + Bond     │  ← 去重写入；失败不阻断回复
+└──────────┬───────────────┘
            ▼
         角色回复
 ```
@@ -53,16 +53,15 @@
 | 合成 | 定制订单 / 叫床 / 生日祝福 → `synthesizeWithVoiceClone()` |
 | 存储 | `VoiceProfile.embeddingId` → `Character.voiceEmbeddingId` |
 
-### 3. Memos 强制记忆插件
+### 3. PostgreSQL 永久记忆
 
 | 项 | 说明 |
 |----|------|
 | 目的 | AI 角色拥有**永久记忆**，跨会话记住用户偏好与关系 |
-| Query | **每次对话前强制执行**，不可跳过 |
-| Store | **每次对话后强制写入** |
-| 生产 | 对接 `MEMOS_API_URL` + `MEMOS_API_KEY`（本地 `npm run worker:memos`） |
-| 降级 | 本地 `CharacterMemory` 表 + 关键词检索 |
-| 删除 | 设置页 / `DELETE /api/ai/memory`；Worker `POST /v1/memory/delete` |
+| Query | 每次对话前查询 `CharacterMemory`，按关键词与重要度召回 |
+| Store | 对话后按内容哈希去重写入，失败不阻断角色回复 |
+| 存储 | 统一使用 `DATABASE_URL` 指向的 PostgreSQL，不再切换远程与本地数据源 |
+| 删除 | 设置页 / `DELETE /api/ai/memory`，本地事务删除记忆、聊天、关系与请求记录 |
 | 调试 | `POST /api/ai/memory` 查看检索结果 |
 
 ---
@@ -70,9 +69,7 @@
 ## 环境变量
 
 ```bash
-# Memos 永久记忆（本地默认独立进程 :3220）
-MEMOS_API_URL=http://127.0.0.1:3220
-MEMOS_API_KEY=
+# 永久记忆使用 DATABASE_URL 指向的 PostgreSQL
 
 # LoRA 训练 & 推理
 LORA_TRAINING_API_URL=
@@ -93,7 +90,7 @@ AI_MODEL_FLAGSHIP=
 AI_MODEL_IMAGE=
 ```
 
-未配置外部服务时，Memos 降级本地存储，LoRA 模拟训练完成，TTS 降级网关通用 TTS。
+未配置外部服务时，LoRA 模拟训练完成，TTS 降级网关通用 TTS。
 
 模型选择策略（按场景分档、预算守卫、失败降档）见 [`AI_ROUTING.md`](AI_ROUTING.md)。
 
@@ -104,7 +101,7 @@ AI_MODEL_IMAGE=
 ```
 src/lib/ai/
 ├── pipeline.ts        # 主链路编排
-├── memos-plugin.ts    # 强制记忆 query/store
+├── memos-plugin.ts    # PostgreSQL 记忆 query/store（保留历史文件名）
 ├── lora.ts            # LoRA 训练 & adapter 解析
 ├── tts-voice-clone.ts # 5 秒声纹 & 克隆合成
 ├── llm.ts             # LLM 推理（记忆+LoRA 注入）

@@ -297,7 +297,7 @@ export function ChatThread({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ characterId, message: userText }),
+        body: JSON.stringify({ characterId, message: userText, requestId: crypto.randomUUID() }),
       });
 
       const data = await res.json();

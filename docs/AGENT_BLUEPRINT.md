@@ -31,7 +31,7 @@
 
 | 编号 | 领域 | 问题 | 代码位置 |
 |---|---|---|---|
-| G-1 | 记忆 | 单表 `CharacterMemory`，检索是 `content contains 关键词`，写入靠正则命中「我喜欢／好き／生日」就存一条。没有向量、没有去重、没有冲突消解、没有时间线、没有遗忘。命中不到就退化成「取最近 8 条」。远程 `MEMOS_API_URL` 那条路径是个没有实现的接口契约。 | `src/lib/ai/memos-plugin.ts` → `extractMemorableFacts()` / `queryMemosLocal()` |
+| G-1 | 记忆 | 单表 `CharacterMemory`，检索是 `content contains 关键词`，写入靠正则命中「我喜欢／好き／生日」就存一条。已用内容哈希去重，但没有向量、冲突消解、时间线和遗忘。命中不到就退化成「取最近 8 条」。当前统一使用 PostgreSQL，不再切换远程与本地数据源。 | `src/lib/ai/memos-plugin.ts` → `extractMemorableFacts()` / `queryMemosLocal()` |
 | G-2 | 世界观 | `identity` / `worldRules` / `brandVoice` / `boundaries` 四个字符串字段，每轮全量拼进 system prompt。没有条目化、没有触发条件、没有优先级，多个角色无法共享同一个世界，设定一长就必然挤掉对话历史。 | `src/lib/agent/prompt.ts` → `buildPersonaSystemPrompt()` |
 | G-3 | 技能 | `registerSkill()` 注册的是硬编码 TS 插件，带一个 `cannedReply` 罐头文案。调用靠用户输入 `/skills xxx` 正则匹配。没有参数 schema、没有执行沙箱、模型完全不参与决策，创作者也无法新增。加一个技能 = 改主仓库 + 发版。 | `src/modules/agent/skills/registry.ts` · `src/lib/chat-skill-command.ts` |
 | G-4 | 编排 | 固定四步直线 pipeline，没有 agent loop，工具结果无法回灌重新生成，没有生成后校验。记忆写入同步阻塞在请求路径上，直接抬高每轮延迟。回复整段返回，没有流式。 | `src/lib/ai/pipeline.ts` → `runChatPipeline()` |

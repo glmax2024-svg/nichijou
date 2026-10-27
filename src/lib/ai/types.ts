@@ -44,6 +44,7 @@ export type ChatPipelineInput = {
   character: CharacterPersona;
   history: ChatTurn[];
   userMessage: string;
+  requestId?: string;
   /** 成本分档依据 —— 不传按免费用户处理（最省档）。 */
   isSubscribed?: boolean;
   isCreator?: boolean;

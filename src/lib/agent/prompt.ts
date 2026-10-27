@@ -42,7 +42,7 @@ ${brand ? `ブランド表現: ${brand}` : ""}
 ## 関係スナップショット（必ず矛盾なく続ける）
 ${formatBondForPrompt(input.bond ?? null)}
 
-## 永久记忆（Memos 强制检索结果 — 必ず参照すること）
+## 永久记忆（必ず参照すること）
 ${input.memoryBlock}
 
 ${input.loraAugment}
