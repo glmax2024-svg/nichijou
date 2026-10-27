@@ -1,6 +1,6 @@
 # AI 模型路由与成本控制
 
-所有 LLM / 生图 / TTS 调用统一走中转站网关。**「什么时候调哪个模型」由场景决定，不由调用点自己决定。**
+1:1 角色聊天（`chat.free` / `chat.subscribed` / `chat.creator`）优先走同事的 Zetta `nichijou-v1`（`ZETTA_API_URL` + `ZETTA_API_KEY`）。失败再回中转站。审核、评论回复、文案草稿、塔罗仍走网关分档。
 
 ```
 调用点  →  AiScene  →  SceneConfig(档位/上限/上下文预算)  →  预算守卫  →  gateway  →  记账

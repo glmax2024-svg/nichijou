@@ -1,18 +1,22 @@
 /**
  * LLM 推理层 — 整合 LoRA 人设 + Memos 记忆注入 system prompt
  *
- * 调用优先级（成本从低到高）：
- *   1. 自建 LoRA 推理服务（自有算力，且能保人设）—— 角色 adapter READY 且配置了 URL
- *   2. 中转站网关，按场景分档（见 model-router.ts）
- *   3. 仅 Demo：静态兜底文案。生产环境网关失败则抛错。
+ * 1:1 聊天优先级：
+ *   1. Zetta nichijou-v1（同事角色聊天服务，吃我们传入的 system 人设）
+ *   2. 自建 LoRA 推理（非 Anima adapter）
+ *   3. 中转站网关
+ *
+ * 评论回复 / 文案草稿 / 审核仍走网关分档。
  */
 
 import type { CharacterPersona, ChatTurn, LoraAdapterConfig, MemoryEntry } from "./types";
 import { parseAnimaAdapter } from "./providers/anima";
+import { chatZetta, isZettaChatConfigured, zettaChatModel } from "./providers/zetta-chat";
 import { buildLoraSystemAugment, loraWorkerHeaders } from "./lora";
 import { formatMemoriesForPrompt } from "./memos-plugin";
 import { runSceneChat, getSceneConfig, type AiScene } from "./model-router";
 import type { GatewayMessage } from "./gateway";
+import { recordUsage } from "./usage";
 import { FailClosedError } from "@/lib/runtime";
 import { buildPersonaSystemPrompt, NO_ACTION_RULE, replyLanguageInstruction } from "@/lib/agent/prompt";
 import { stripStageDirections } from "@/lib/agent/stage-directions";
@@ -39,12 +43,51 @@ type GenerateParams = {
   languageSource?: string;
 };
 
+function isCharacterChatScene(scene: AiScene) {
+  return scene === "chat.free" || scene === "chat.subscribed" || scene === "chat.creator";
+}
+
 export async function generateWithPersona(params: GenerateParams): Promise<string> {
   const scene = params.scene ?? "chat.free";
   const config = getSceneConfig(scene);
   const messages = buildMessages(params, scene);
 
-  // 1. 自建 LoRA 推理优先 —— 自有算力，且人设一致性最好
+  if (isCharacterChatScene(scene) && isZettaChatConfigured()) {
+    try {
+      const result = await chatZetta({
+        messages,
+        maxTokens: config.maxTokens,
+        temperature: config.temperature,
+      });
+      recordUsage({
+        scene,
+        tier: config.tier,
+        model: result.model || zettaChatModel(),
+        protocol: "openai",
+        usage: result.usage,
+        latencyMs: result.latencyMs,
+        ok: true,
+        userId: params.userId,
+        characterId: params.character.id,
+      });
+      return stripStageDirections(result.text);
+    } catch (err) {
+      recordUsage({
+        scene,
+        tier: config.tier,
+        model: zettaChatModel(),
+        protocol: "openai",
+        usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+        latencyMs: 0,
+        ok: false,
+        userId: params.userId,
+        characterId: params.character.id,
+        errorMsg: err instanceof Error ? err.message : String(err),
+      });
+      console.error("[llm] Zetta chat failed, falling back to gateway:", err);
+    }
+  }
+
   if (params.loraConfig && LORA_INFERENCE_URL && !parseAnimaAdapter(params.loraConfig.adapterId)) {
     try {
       return stripStageDirections(await generateViaLoraInference(params, messages, config.maxTokens));
@@ -53,7 +96,6 @@ export async function generateWithPersona(params: GenerateParams): Promise<strin
     }
   }
 
-  // 2. 中转站网关（按场景分档 + 预算守卫 + 失败降档）
   try {
     const result = await runSceneChat({
       scene,
@@ -63,7 +105,6 @@ export async function generateWithPersona(params: GenerateParams): Promise<strin
     });
     return stripStageDirections(result.text);
   } catch (err) {
-    // 不再用固定文案冒充角色回复：服务不可用就如实报错
     console.error("[llm] gateway failed:", err);
     throw err instanceof FailClosedError
       ? err

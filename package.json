@@ -26,7 +26,8 @@
     "characters:import": "tsx --env-file=.env scripts/characters/import-catalog.ts",
     "characters:assign-creators": "tsx --env-file=.env scripts/characters/assign-creators.ts",
     "data:purge-demo": "tsx --env-file=.env scripts/data/purge-demo.ts",
-    "characters:greetings": "tsx --env-file=.env scripts/characters/draft-greetings.ts"
+    "characters:greetings": "tsx --env-file=.env scripts/characters/draft-greetings.ts",
+    "characters:manga-day": "tsx --env-file=.env scripts/characters/publish-manga-day.ts"
   },
   "postinstall": "prisma generate",
   "dependencies": {
