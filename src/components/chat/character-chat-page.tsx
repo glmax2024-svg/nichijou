@@ -68,9 +68,9 @@ export async function CharacterChatPage({
 
   const messages = await prisma.message.findMany({
     where: { userId: session.user.id, characterId: character.id },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: 50,
-  });
+  }).then((rows) => rows.reverse());
 
   const chatContext = await getChatContext(session.user.id, character, {
     postId: activePostId,

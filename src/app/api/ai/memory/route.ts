@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { mandatoryMemosQuery } from "@/lib/ai/pipeline";
-import { eraseCompanionData } from "@/lib/privacy/erase";
+import { eraseCompanionData, RemoteMemoryEraseError } from "@/lib/privacy/erase";
 import { enforceRateLimit } from "@/modules/governance";
 import { z } from "zod";
 
@@ -70,6 +70,12 @@ export async function DELETE(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: "リクエストが不正です" }, { status: 400 });
+    }
+    if (error instanceof RemoteMemoryEraseError) {
+      return NextResponse.json(
+        { ok: false, error: "リモート記憶を削除できませんでした", code: "REMOTE_MEMORY_ERASE_FAILED" },
+        { status: 503 },
+      );
     }
     return NextResponse.json({ error: "データの削除に失敗しました" }, { status: 500 });
   }
