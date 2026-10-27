@@ -27,6 +27,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const data = schema.parse(body);
+    data.email = data.email.trim().toLowerCase();
     const birthDate = parseBirthDateInput(data.birthDate);
     if (!birthDate) {
       return NextResponse.json({ error: "生年月日を確認してください" }, { status: 400 });

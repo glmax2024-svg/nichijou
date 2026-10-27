@@ -1,3 +1,7 @@
+www.__APP_DOMAIN__ {
+	redir https://__APP_DOMAIN__{uri} permanent
+}
+
 __APP_DOMAIN__ {
 	encode zstd gzip
 	# 生图可能要 1–3 分钟，别让代理先断开

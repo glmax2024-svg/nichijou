@@ -21,8 +21,9 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const data = schema.parse(body);
+    const email = data.email.trim().toLowerCase();
 
-    const user = await prisma.user.findUnique({ where: { email: data.email } });
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user?.passwordHash) {
       return NextResponse.json({ error: "メールまたはパスワードが正しくありません" }, { status: 401 });
     }
