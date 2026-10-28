@@ -6,12 +6,11 @@ import Image from "next/image";
 import { MIcon } from "@/components/ui/m-icon";
 import { CharacterImage } from "@/components/ui/character-image";
 import {
-  DISCOVER_CATEGORIES,
   DISCOVER_GENDERS,
+  TAG_DICT_KEY,
+  collectTagCounts,
   formatDiscoverCount,
-  matchesCategory,
   type DiscoverGender,
-  type DiscoverCategoryId,
 } from "@/lib/discover-catalog";
 import { parseTags } from "@/lib/utils";
 import { bustCharacterAssetCache } from "@/lib/character-media";
@@ -48,7 +47,7 @@ type GridCard = {
   name: string;
   tagline: string;
   description: string;
-  coverUrl: string;
+  portraitUrl: string;
   slug: string;
   chats: number;
   tags: string[];
@@ -58,7 +57,7 @@ type GridCard = {
 type WantChatItem = {
   key: string;
   name: string;
-  coverUrl: string;
+  portraitUrl: string;
   href: string;
   chatHref: string;
   tagline: string;
@@ -83,6 +82,8 @@ function buildOpeners(
 }
 
 function localizeTag(dict: Dictionary, tag: string): string {
+  const mapped = TAG_DICT_KEY[tag];
+  if (mapped && mapped in dict.tags) return dict.tags[mapped as keyof Dictionary["tags"]];
   const key = tag as keyof Dictionary["tags"];
   return dict.tags[key] ?? tag;
 }
@@ -96,7 +97,7 @@ function dbToCard(c: DbCharacter, basePath: string): GridCard {
     name: c.name,
     tagline: c.tagline ?? "",
     description: c.bio.slice(0, 90),
-    coverUrl: c.coverUrl || c.avatarUrl,
+    portraitUrl: c.avatarUrl || c.coverUrl || "",
     slug: c.slug,
     chats: c.chatUsers,
     tags: parseTags(c.tags),
@@ -109,8 +110,12 @@ function loadWantChat(): WantChatItem[] {
   try {
     const raw = localStorage.getItem(WANT_CHAT_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as WantChatItem[];
-    return Array.isArray(parsed) ? parsed.slice(0, 20) : [];
+    const parsed = JSON.parse(raw) as Array<WantChatItem & { coverUrl?: string }>;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice(0, 20).map((item) => ({
+      ...item,
+      portraitUrl: item.portraitUrl || item.coverUrl || "",
+    }));
   } catch {
     return [];
   }
@@ -123,7 +128,7 @@ export function DiscoverPageClient({
 }: DiscoverPageClientProps) {
   const { dict } = useLocale();
   const [gender, setGender] = useState<(typeof DISCOVER_GENDERS)[number]["id"]>("all");
-  const [category, setCategory] = useState<DiscoverCategoryId>("anime");
+  const [tag, setTag] = useState<string>("all");
   const [wantChat, setWantChat] = useState<WantChatItem[]>([]);
   const [showWantTray, setShowWantTray] = useState(false);
   const [preview, setPreview] = useState<GridCard | null>(null);
@@ -143,13 +148,15 @@ export function DiscoverPageClient({
   }, []);
 
   const allCards = useMemo(() => characters.map((c) => dbToCard(c, basePath)), [characters, basePath]);
+  const tagOptions = useMemo(() => collectTagCounts(allCards.map((c) => c.tags)), [allCards]);
 
   const filtered = useMemo(() => {
     return allCards.filter((card) => {
       if (gender !== "all" && card.gender !== gender) return false;
-      return matchesCategory(card.tags, category);
+      if (tag !== "all" && !card.tags.includes(tag)) return false;
+      return true;
     });
-  }, [allCards, gender, category]);
+  }, [allCards, gender, tag]);
 
   function isWanted(key: string) {
     return wantChat.some((w) => w.key === key);
@@ -166,7 +173,7 @@ export function DiscoverPageClient({
         {
           key: card.key,
           name: card.name,
-          coverUrl: card.coverUrl,
+          portraitUrl: card.portraitUrl,
           href: card.href,
           chatHref: card.chatHref,
           tagline: card.tagline,
@@ -177,7 +184,7 @@ export function DiscoverPageClient({
   }
 
   const isWeb = variant === "web";
-  const categoryLabel = dict.category[category as keyof typeof dict.category] ?? dict.category.recommend;
+  const tagLabel = tag === "all" ? null : localizeTag(dict, tag);
   const genderLabel = gender === "all" ? null : dict.gender[gender];
 
   return (
@@ -206,10 +213,13 @@ export function DiscoverPageClient({
             <p
               className={`text-[#b0a099] ${isWeb ? "mt-1 text-[13px]" : "mt-0.5 text-[12.5px]"}`}
             >
-              {[genderLabel, categoryLabel].filter(Boolean).join(" · ")}
-              {" · "}
-              {filtered.length}
-              {dict.discover.countSuffix ? ` ${dict.discover.countSuffix}` : ""}
+              {[
+                genderLabel,
+                tagLabel,
+                `${filtered.length}${dict.discover.countSuffix ? ` ${dict.discover.countSuffix}` : ""}`,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
         </div>
@@ -241,19 +251,30 @@ export function DiscoverPageClient({
           ))}
         </div>
 
-        <div className="mt-2.5 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-hide">
-          {DISCOVER_CATEGORIES.map((c) => (
+        <div className="mt-2.5 flex max-h-[6.75rem] flex-wrap gap-2 overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => setTag("all")}
+            className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
+              tag === "all"
+                ? "bg-[#3a3330] text-white"
+                : "border border-[rgba(120,72,54,0.1)] bg-white/90 text-[#8a7a72]"
+            }`}
+          >
+            {dict.discover.allTags}
+          </button>
+          {tagOptions.map((opt) => (
             <button
-              key={c.id}
+              key={opt.tag}
               type="button"
-              onClick={() => setCategory(c.id)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
-                category === c.id
+              onClick={() => setTag(opt.tag)}
+              className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
+                tag === opt.tag
                   ? "bg-[#3a3330] text-white"
                   : "border border-[rgba(120,72,54,0.1)] bg-white/90 text-[#8a7a72]"
               }`}
             >
-              {dict.category[c.id]}
+              {localizeTag(dict, opt.tag)}
             </button>
           ))}
         </div>
@@ -372,9 +393,9 @@ function DiscoverPortraitCard({
       >
         <CharacterImage
           slug={card.slug}
-          src={card.coverUrl}
+          src={card.portraitUrl}
           alt={card.name}
-          variant="cover"
+          variant="avatar"
           fill
           sizes="(max-width:640px) 50vw, (max-width:1024px) 25vw, 280px"
           className="transition duration-300 group-hover:scale-[1.03]"
@@ -406,8 +427,20 @@ function DiscoverPortraitCard({
           <MIcon name="forum" className="text-[13px]" />
           {chatsLabel}
         </div>
+        {card.tags.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {card.tags.slice(0, 2).map((t) => (
+              <span
+                key={t}
+                className="rounded-full bg-white/18 px-1.5 py-0.5 text-[10px] font-bold text-white/85"
+              >
+                {localizeTag(dict, t)}
+              </span>
+            ))}
+          </div>
+        )}
         <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed text-white/65 sm:text-[12px]">
-          {card.description || card.tagline}
+          {card.tagline || card.description}
         </p>
       </div>
 
@@ -451,7 +484,7 @@ function PreviewSheet({
   openers: string[];
 }) {
   const { dict } = useLocale();
-  const cover = bustCharacterAssetCache(card.coverUrl);
+  const portrait = bustCharacterAssetCache(card.portraitUrl);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
@@ -463,7 +496,7 @@ function PreviewSheet({
       />
       <div className="relative z-10 max-h-[86vh] w-full max-w-[420px] overflow-hidden rounded-t-[28px] bg-white shadow-2xl sm:rounded-[28px]">
         <div className="relative aspect-[4/3] bg-[#fbf4f1]">
-          <Image src={cover} alt="" fill className="object-cover object-top" sizes="420px" />
+          <Image src={portrait} alt="" fill className="object-cover object-top" sizes="420px" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
           <button
             type="button"
@@ -596,7 +629,7 @@ function WantChatTray({
             >
               <div className="relative h-14 w-11 shrink-0 overflow-hidden rounded-[10px]">
                 <Image
-                  src={bustCharacterAssetCache(item.coverUrl)}
+                  src={bustCharacterAssetCache(item.portraitUrl)}
                   alt=""
                   fill
                   className="object-cover object-top"
