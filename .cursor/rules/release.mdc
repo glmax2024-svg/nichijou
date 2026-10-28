@@ -1,0 +1,16 @@
+---
+description: 上线必须走 GitHub PR 并交叉审核，禁止直推生产
+alwaysApply: true
+---
+
+# 上线流程
+
+生产代码必须先合进 `main`，禁止从功能分支或脏工作区直接部署。
+
+1. 在功能分支改代码（不要推 `main`）。
+2. 推远程，对 `main` 开 PR（已有 PR 则更新同一条）。
+3. 请至少一位同事审核通过后再合并。作者不能自己批自己。
+4. 只有 `origin/main` 的当前提交允许部署：`deploy/deploy.sh nichijou-prod nichijou.ai`
+5. 用户只说「部署」但改动还没合进 `main` 时：说明要先过 PR，不要跑 `deploy.sh`。
+
+不要绕过审核：不要 `--no-verify`、不要 force push `main`、不要在未合并时 rsync 上线。

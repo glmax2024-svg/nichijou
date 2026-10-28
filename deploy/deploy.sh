@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # 从本机部署到服务器：同步代码 → 服务器上安装依赖、同步表结构、构建 → 重启
+# 必须在已与 origin/main 对齐的干净 main 上运行（先 PR、审核、合并）。
 #   首次：  deploy/deploy.sh root@<IP> <域名> --env deploy/.env.production
-#   之后：  deploy/deploy.sh root@<IP> <域名>
+#   之后：  deploy/deploy.sh nichijou-prod nichijou.ai
 set -euo pipefail
 HOST="${1:?用法: deploy.sh <user@host> <域名> [--env <文件>]}"
 DOMAIN="${2:?缺少域名}"
@@ -11,11 +12,27 @@ ENV_FILE=""
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP=/srv/nichijou
 
+cd "$ROOT"
+git fetch origin main >/dev/null 2>&1 || true
+branch="$(git rev-parse --abbrev-ref HEAD)"
+head="$(git rev-parse HEAD)"
+main="$(git rev-parse origin/main 2>/dev/null || true)"
+if [ "$branch" != "main" ] || [ -z "$main" ] || [ "$head" != "$main" ]; then
+  echo "✗ 只允许从已与 origin/main 对齐的 main 分支部署（当前 $branch @ ${head:0:7}）"
+  echo "  请先把改动做成 PR，审核合并后再部署。"
+  exit 1
+fi
+if [ -n "$(git status --porcelain)" ]; then
+  echo "✗ 工作区不干净，拒绝部署。提交或清理后再试。"
+  exit 1
+fi
+
+
 echo "▸ 同步代码到 $HOST:$APP"
 rsync -az --delete \
   --exclude .git --exclude node_modules --exclude .next \
   --exclude '.env*' --exclude 'public/uploads/*/*' --exclude 'prisma/dev.db' \
-  --exclude .claude --exclude .DS_Store \
+  --exclude .claude --exclude .DS_Store --exclude promo \
   "$ROOT/" "$HOST:$APP/"
 
 if [ -n "$ENV_FILE" ]; then

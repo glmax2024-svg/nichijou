@@ -128,11 +128,19 @@ ssh root@<IP> 'cd /srv/nichijou && sudo -u nichijou npm run invites:create -- --
 
 正式公开时把 `NICHIJOU_INVITE_ONLY` 改成 `"false"` 并重启即可，已有账号和邀请码不受影响。
 
-以后更新代码只需要：
+以后更新代码：
+
+1. 功能分支推到 GitHub，对 `main` 开 PR
+2. 至少一位同事审核通过后合并
+3. 在已与 `origin/main` 对齐的干净 `main` 上部署：
 
 ```bash
-deploy/deploy.sh root@<IP> <域名>
+git checkout main && git pull
+deploy/deploy.sh nichijou-prod nichijou.ai
 ```
+
+未合并进 `main` 的改动不要直接 rsync 上生产。`deploy.sh` 会拒绝脏工作区和非 `main` 分支。
+
 
 ## 常用运维
 
