@@ -99,6 +99,8 @@ const ja = {
   discover: {
     title: "キャラクターを発見",
     allTags: "すべてのタグ",
+    moreTags: "もっと見る",
+    lessTags: "閉じる",
     searchPlaceholder: "好きな AI / キャラを検索",
     empty: "この条件では見つかりませんでした",
     countSuffix: "件",

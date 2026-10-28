@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MIcon } from "@/components/ui/m-icon";
@@ -251,33 +251,7 @@ export function DiscoverPageClient({
           ))}
         </div>
 
-        <div className="mt-2.5 flex max-h-[6.75rem] flex-wrap gap-2 overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => setTag("all")}
-            className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
-              tag === "all"
-                ? "bg-[#3a3330] text-white"
-                : "border border-[rgba(120,72,54,0.1)] bg-white/90 text-[#8a7a72]"
-            }`}
-          >
-            {dict.discover.allTags}
-          </button>
-          {tagOptions.map((opt) => (
-            <button
-              key={opt.tag}
-              type="button"
-              onClick={() => setTag(opt.tag)}
-              className={`rounded-full px-3.5 py-1.5 text-[12px] font-bold transition ${
-                tag === opt.tag
-                  ? "bg-[#3a3330] text-white"
-                  : "border border-[rgba(120,72,54,0.1)] bg-white/90 text-[#8a7a72]"
-              }`}
-            >
-              {localizeTag(dict, opt.tag)}
-            </button>
-          ))}
-        </div>
+        <TagFilterBar options={tagOptions} value={tag} onChange={setTag} />
 
         <div
           className={`mt-4 grid ${
@@ -336,6 +310,96 @@ export function DiscoverPageClient({
           onToggleWant={() => toggleWant(preview)}
           openers={buildOpeners(dict, preview.name, preview.tagline, preview.description)}
         />
+      )}
+    </div>
+  );
+}
+
+const TAG_CHIP =
+  "inline-flex h-8 shrink-0 items-center gap-0.5 rounded-full px-3.5 text-[12px] font-bold transition";
+
+function tagChipClass(active: boolean) {
+  return `${TAG_CHIP} ${
+    active
+      ? "bg-[#3a3330] text-white"
+      : "border border-[rgba(120,72,54,0.1)] bg-white/90 text-[#8a7a72]"
+  }`;
+}
+
+function TagFilterBar({
+  options,
+  value,
+  onChange,
+}: {
+  options: { tag: string; count: number }[];
+  value: string;
+  onChange: (tag: string) => void;
+}) {
+  const { dict } = useLocale();
+  const [expanded, setExpanded] = useState(false);
+  const [overflow, setOverflow] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const measure = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    setOverflow(el.scrollHeight > el.clientHeight + 1);
+  }, []);
+
+  useLayoutEffect(() => {
+    if (expanded) return;
+    measure();
+  }, [expanded, measure, options, dict]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      if (!expanded) measure();
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [expanded, measure]);
+
+  return (
+    <div className="relative mt-2.5">
+      <div
+        ref={listRef}
+        className={`flex flex-wrap gap-2 ${expanded ? "" : "max-h-[4.5rem] overflow-hidden"}`}
+      >
+        <button type="button" onClick={() => onChange("all")} className={tagChipClass(value === "all")}>
+          {dict.discover.allTags}
+        </button>
+        {options.map((opt) => (
+          <button
+            key={opt.tag}
+            type="button"
+            onClick={() => onChange(opt.tag)}
+            className={tagChipClass(value === opt.tag)}
+          >
+            {localizeTag(dict, opt.tag)}
+          </button>
+        ))}
+        {expanded && overflow && (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className={`${TAG_CHIP} border border-[rgba(120,72,54,0.1)] bg-white text-[#5a4f48]`}
+          >
+            {dict.discover.lessTags}
+            <MIcon name="expand_more" className="rotate-180 text-[16px]" />
+          </button>
+        )}
+      </div>
+      {!expanded && overflow && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className={`${TAG_CHIP} absolute bottom-0 right-0 z-10 border border-[rgba(120,72,54,0.1)] bg-white text-[#5a4f48] shadow-[-18px_0_14px_10px_#fbf4f1]`}
+        >
+          {dict.discover.moreTags}
+          <MIcon name="expand_more" className="text-[16px]" />
+        </button>
       )}
     </div>
   );

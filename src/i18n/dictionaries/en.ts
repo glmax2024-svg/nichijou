@@ -101,6 +101,8 @@ const en: Dictionary = {
   discover: {
     title: "Discover characters",
     allTags: "All tags",
+    moreTags: "More",
+    lessTags: "Less",
     searchPlaceholder: "Search AI / characters",
     empty: "No characters match these filters",
     countSuffix: "",

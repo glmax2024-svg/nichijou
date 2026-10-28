@@ -100,6 +100,8 @@ const zhHant: Dictionary = {
   discover: {
     title: "發現角色",
     allTags: "全部標籤",
+    moreTags: "更多",
+    lessTags: "收合",
     searchPlaceholder: "搜尋喜歡的 AI / 角色",
     empty: "沒有符合條件的角色",
     countSuffix: "件",

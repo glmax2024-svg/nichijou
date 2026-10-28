@@ -5,6 +5,7 @@ import { MIcon } from "@/components/ui/m-icon";
 import { MobilePageHeader } from "@/components/mobile/mobile-page-header";
 import { SEARCH_TAGS, searchCharacters } from "@/lib/search";
 import { CharacterImage } from "@/components/ui/character-image";
+import { resolveAnimeCover } from "@/lib/character-media";
 import { getCoverGradient } from "@/lib/scenes";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -156,6 +157,7 @@ function SearchCard({
     slug: string;
     name: string;
     avatarUrl: string;
+    coverUrl: string | null;
     tagline: string | null;
     tags: string;
     _count: { posts: number; subscriptions: number };
@@ -165,12 +167,24 @@ function SearchCard({
   /** 亲密度等级，没聊过为 undefined */
   level?: number;
 }) {
-  const cover = getCoverGradient(c.slug);
+  const sceneSrc = c.coverUrl ? resolveAnimeCover(c.slug, c.coverUrl) : null;
   const tags = parseTags(c.tags);
 
   return (
     <div className="overflow-hidden rounded-[22px] border border-[rgba(120,72,54,0.07)] bg-white shadow-[0_14px_34px_-24px_rgba(120,72,54,0.5)]">
-      <div className="relative h-[100px] overflow-hidden sm:h-[110px]" style={{ background: cover }}>
+      <div
+        className="relative h-[100px] overflow-hidden bg-[#eee4de] sm:h-[110px]"
+        style={sceneSrc ? undefined : { background: getCoverGradient(c.slug) }}
+      >
+        {sceneSrc && (
+          <Image
+            src={sceneSrc}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="(max-width:640px) 100vw, 420px"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/30" />
         {level !== undefined && (
           <span className="absolute left-2.5 top-2.5 rounded-full bg-[rgba(58,51,48,0.72)] px-2 py-0.5 text-[10px] font-bold text-white">
